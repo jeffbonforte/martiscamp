@@ -83,6 +83,7 @@ export function App({ onSignOut }) {
   const setRsvp = (id, v) => { setRsvpMap((m) => ({ ...m, [id]: v })); persistRsvp(id, v); };
   const addToCalendar = (g) => setCalEvent(g);
   const openPost = (type) => { setPostType(type); setPlanOpen(true); };
+  const reload = () => loadAppData().then(setBase); // refresh dataset after a write
 
   const feedGoto = (item) => {
     setFeedOpen(false);
@@ -211,7 +212,7 @@ export function App({ onSignOut }) {
         ))}
       </nav>
 
-      <HostDialog open={planOpen} initialType={postType} onClose={() => setPlanOpen(false)} />
+      <HostDialog open={planOpen} initialType={postType} onClose={() => setPlanOpen(false)} onCreated={reload} />
       <EditProfileDialog target={editTarget} weekendDays={data.weekendDays} onClose={() => setEditTarget(null)} onSaved={bump} />
       <AddToCalendarDialog event={calEvent} onClose={() => setCalEvent(null)} />
     </div>

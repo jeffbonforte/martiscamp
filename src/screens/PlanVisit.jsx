@@ -3,6 +3,7 @@ import { Button } from '../components/index.js';
 import { useLucide } from '../lib/useLucide.js';
 import { PageHead, chipStyle } from './shared.jsx';
 import { MONTHS, WEEKDAYS, monthMatrix, nextMonths, dateKey } from '../lib/calendar.js';
+import { loadVisitPlan, saveVisitPlan, isSupabaseConfigured } from '../lib/api.js';
 
 const APP_TODAY = new Date(2025, 6, 11);
 const startOfToday = new Date(APP_TODAY.getFullYear(), APP_TODAY.getMonth(), APP_TODAY.getDate());
@@ -37,11 +38,34 @@ export function PlanVisit({ data, onBack }) {
   }, [data, myFam]);
 
   const [planned, setPlanned] = React.useState(seed);
+  const [saving, setSaving] = React.useState(false);
+  const [saved, setSaved] = React.useState(false);
   useLucide();
+
+  // When Supabase is configured, hydrate the plan from saved attendance.
+  React.useEffect(() => {
+    if (!isSupabaseConfigured) return undefined;
+    let alive = true;
+    loadVisitPlan().then((res) => {
+      if (!alive || !res) return;
+      const next = {};
+      Object.entries(res.plan).forEach(([k, arr]) => { next[k] = new Set(arr); });
+      setPlanned(next);
+    });
+    return () => { alive = false; };
+  }, []);
+
+  const savePlan = async () => {
+    setSaving(true); setSaved(false);
+    const r = await saveVisitPlan(scope, [...(planned[scope] || [])], dateKey(startOfToday));
+    setSaving(false);
+    if (r.ok || r.offline) setSaved(true);
+  };
 
   const current = planned[scope] || new Set();
   const toggleDay = (date) => {
     if (date < startOfToday) return;
+    setSaved(false);
     const k = dateKey(date);
     setPlanned((prev) => {
       const next = { ...prev };
@@ -69,13 +93,13 @@ export function PlanVisit({ data, onBack }) {
       <div style={{ position: 'sticky', top: 0, zIndex: 10, background: 'var(--surface-page)', paddingBottom: 'var(--space-4)', marginBottom: 'var(--space-4)', borderBottom: '1px solid var(--divider)' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
           <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-            {scopes.map((s) => <button key={s.key} type="button" onClick={() => setScope(s.key)} style={chipStyle(scope === s.key)}>{s.label}</button>)}
+            {scopes.map((s) => <button key={s.key} type="button" onClick={() => { setScope(s.key); setSaved(false); }} style={chipStyle(scope === s.key)}>{s.label}</button>)}
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
             <span style={{ font: 'var(--role-small)', color: 'var(--text-muted)' }}>
               Marked for <b style={{ color: 'var(--success)', fontWeight: 'var(--fw-semibold)' }}>{dayCount} day{dayCount === 1 ? '' : 's'}</b> across {weekendCount} weekend{weekendCount === 1 ? '' : 's'}
             </span>
-            <Button size="sm" iconLeft={<i data-lucide="check" style={{ width: 15, height: 15 }} />}>Save plan</Button>
+            <Button size="sm" disabled={saving} onClick={savePlan} iconLeft={<i data-lucide="check" style={{ width: 15, height: 15 }} />}>{saving ? 'Saving…' : saved ? 'Saved ✓' : 'Save plan'}</Button>
           </div>
         </div>
       </div>

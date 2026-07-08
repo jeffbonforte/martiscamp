@@ -68,16 +68,14 @@ export async function signOut() {
 }
 
 // Link the signed-in auth user to their members row by email (first sign-in).
+// Uses a SECURITY DEFINER RPC because a normal UPDATE can't pass RLS before the
+// link exists (you'd have to already be linked to be allowed to link).
 async function ensureMemberLink(session) {
-  if (!session?.user?.email) return null;
-  const email = session.user.email;
+  if (!session?.user?.id) return null;
   let { data: me } = await supabase.from('members').select('id, name, family_id, is_admin').eq('user_id', session.user.id).maybeSingle();
   if (!me) {
-    const { data: byEmail } = await supabase.from('members').select('id, name, family_id, is_admin').eq('email', email).maybeSingle();
-    if (byEmail) {
-      await supabase.from('members').update({ user_id: session.user.id, is_account: true }).eq('id', byEmail.id);
-      me = byEmail;
-    }
+    await supabase.rpc('link_member_to_user');
+    ({ data: me } = await supabase.from('members').select('id, name, family_id, is_admin').eq('user_id', session.user.id).maybeSingle());
   }
   return me || null;
 }
@@ -241,4 +239,106 @@ export async function persistFavorite(id, on) {
   } else {
     await supabase.from('favorites').delete().match({ member_id: mid, target_type, target_id });
   }
+}
+
+async function currentFamilyId() {
+  const { data } = await supabase.rpc('current_family_id');
+  return data || null;
+}
+
+const slugify = (s) => ((s || 'event').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40) || 'event');
+const shortId = () => Math.random().toString(36).slice(2, 7);
+
+/**
+ * Create a get-together: inserts the event (host = signed-in member), auto-RSVPs
+ * the host as going, and adds invites for private events. Returns { ok, slug }.
+ */
+export async function createGathering(input) {
+  if (!isSupabaseConfigured) return { ok: false, offline: true };
+  const mid = await currentMemberId();
+  if (!mid) return { ok: false, error: 'Your account isn’t linked to a member yet.' };
+  const slug = `${slugify(input.title)}-${shortId()}`;
+  const { data: ev, error } = await supabase.from('events').insert({
+    slug,
+    title: input.title || 'Get-together',
+    amenity: input.amenity || null,
+    host_member_id: mid,
+    when_label: input.when || null,
+    location: input.location || null,
+    description: input.description || null,
+    visibility: input.visibility === 'private' ? 'private' : 'open',
+    capacity: input.capacity == null || input.capacity === '' ? null : Number(input.capacity),
+  }).select('id, slug').single();
+  if (error || !ev) return { ok: false, error: error?.message || 'Could not create the get-together.' };
+
+  await supabase.from('rsvps').upsert({ event_id: ev.id, member_id: mid, status: 'going' }, { onConflict: 'event_id,member_id' });
+
+  if (input.visibility === 'private' && Array.isArray(input.inviteeNames) && input.inviteeNames.length) {
+    const { data: ms } = await supabase.from('members').select('id').in('name', input.inviteeNames);
+    if (ms?.length) {
+      await supabase.from('event_invites').upsert(
+        ms.map((m) => ({ event_id: ev.id, member_id: m.id, invited_by: mid })),
+        { onConflict: 'event_id,member_id' },
+      );
+    }
+  }
+  return { ok: true, slug: ev.slug };
+}
+
+/**
+ * Load the signed-in family's saved attendance as a plan: per-member sets of
+ * date keys (YYYY-MM-DD), plus a 'family' set = dates where every member is up.
+ * Returns { plan, memberNames } or null when unconfigured.
+ */
+export async function loadVisitPlan() {
+  if (!isSupabaseConfigured) return null;
+  const famId = await currentFamilyId();
+  if (!famId) return null;
+  const [{ data: members }, { data: att }] = await Promise.all([
+    supabase.from('members').select('id, name').eq('family_id', famId).is('archived_at', null),
+    supabase.from('attendance').select('member_id, date').eq('family_id', famId),
+  ]);
+  const idToName = Object.fromEntries((members || []).map((m) => [m.id, m.name]));
+  const byMember = {};
+  (att || []).forEach((a) => { const n = idToName[a.member_id]; if (n) (byMember[n] ||= new Set()).add(a.date); });
+  const memberNames = (members || []).map((m) => m.name);
+  const family = new Set();
+  if (memberNames.length) {
+    for (const d of byMember[memberNames[0]] || []) {
+      if (memberNames.every((n) => (byMember[n] || new Set()).has(d))) family.add(d);
+    }
+  }
+  const plan = { family: [...family] };
+  memberNames.forEach((n) => { plan[n] = [...(byMember[n] || new Set())]; });
+  return { plan, memberNames };
+}
+
+/**
+ * Save a scope's attendance (replace-in-horizon from `fromKey` onward).
+ *  - scope === 'family' → applies to every family member
+ *  - scope === '<Member Name>' → that member only
+ */
+export async function saveVisitPlan(scope, dateKeys, fromKey) {
+  if (!isSupabaseConfigured) return { ok: false, offline: true };
+  const famId = await currentFamilyId();
+  const mid = await currentMemberId();
+  if (!famId) return { ok: false, error: 'Not linked to a family.' };
+
+  let targets;
+  if (scope === 'family') {
+    const { data: ms } = await supabase.from('members').select('id').eq('family_id', famId).is('archived_at', null);
+    targets = ms || [];
+  } else {
+    const { data: m } = await supabase.from('members').select('id').eq('name', scope).eq('family_id', famId).maybeSingle();
+    targets = m ? [m] : [];
+  }
+  const ids = targets.map((t) => t.id);
+  if (!ids.length) return { ok: false, error: 'No members in scope.' };
+
+  // Replace within the planning horizon: clear future rows for these members, then insert the selection.
+  await supabase.from('attendance').delete().in('member_id', ids).gte('date', fromKey);
+  const rows = [];
+  for (const id of ids) for (const d of dateKeys) rows.push({ member_id: id, family_id: famId, date: d, created_by: mid, status: 'planned' });
+  if (rows.length) await supabase.from('attendance').upsert(rows, { onConflict: 'member_id,date' });
+  return { ok: true };
 }
