@@ -1,0 +1,84 @@
+/* Global app-shell + responsive styles (ported from the prototype's index.html
+   and landing.html <style> blocks). Design-system tokens come from styles.css. */
+
+html, body { margin: 0; height: 100%; background: var(--surface-page); font-family: var(--font-sans); -webkit-font-smoothing: antialiased; }
+#root { height: 100vh; }
+* { box-sizing: border-box; }
+:focus-visible { outline: none; box-shadow: var(--shadow-focus); border-radius: var(--radius-sm); }
+
+/* ---- App shell ---- */
+.shell { display: flex; height: 100vh; }
+.main { flex: 1; display: flex; flex-direction: column; min-width: 0; position: relative; }
+.topbar {
+  height: var(--header-h); flex-shrink: 0; display: flex; align-items: center; justify-content: space-between;
+  padding: 0 var(--space-8); border-bottom: 1px solid var(--border);
+  background: color-mix(in srgb, var(--surface-card) 82%, transparent); backdrop-filter: blur(8px);
+  position: sticky; top: 0; z-index: 200;
+}
+.content { flex: 1; overflow: auto; padding: var(--space-8); }
+.inner { max-width: var(--container-max); margin: 0 auto; }
+.mobile-nav { display: none; }
+.desktop-nav { display: block; }
+
+/* ---- Activity feed panel ---- */
+.feed-panel {
+  position: absolute; top: 56px; right: 12px; width: 360px; max-width: calc(100vw - 24px); z-index: 300;
+  background: var(--surface-card); border: 1px solid var(--border); border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-xl); overflow: hidden;
+}
+
+/* ---- Season control ---- */
+.seasonSelect {
+  appearance: none; -webkit-appearance: none; padding: 6px 26px 6px 12px; border: 1px solid var(--border-strong);
+  border-radius: var(--radius-md);
+  background: var(--surface-card) url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23737980' stroke-width='2.5'><polyline points='6 9 12 15 18 9'/></svg>") no-repeat right 8px center;
+  font: var(--fw-semibold) var(--text-xs)/1 var(--font-sans); color: var(--text-strong); cursor: pointer;
+}
+
+/* ---- Mobile bottom tab bar ---- */
+.tabbar {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 250; display: none; justify-content: space-around;
+  background: color-mix(in srgb, var(--surface-card) 92%, transparent); backdrop-filter: blur(10px);
+  border-top: 1px solid var(--border); padding: 6px 4px calc(6px + env(safe-area-inset-bottom));
+}
+.tabbar button {
+  border: none; background: transparent; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 3px;
+  padding: 4px 10px; border-radius: var(--radius-md); color: var(--text-muted); font: var(--fw-semibold) 10px/1 var(--font-sans);
+}
+.tabbar button[data-on="true"] { color: var(--brand); }
+
+/* ---- Landing / sign-in ---- */
+.stage { position: relative; height: 100vh; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+.stage .bg { position: absolute; inset: 0; background-size: cover; background-position: center; }
+.stage .scrim { position: absolute; inset: 0; background: linear-gradient(105deg, rgba(15,31,23,.82) 0%, rgba(15,31,23,.55) 42%, rgba(15,31,23,.25) 100%); }
+.stage .wrap {
+  position: relative; width: 100%; max-width: var(--container-max); padding: 0 var(--space-12);
+  display: grid; grid-template-columns: 1.1fr minmax(360px, 420px); gap: var(--space-12); align-items: center;
+}
+.stage .lede { color: #fff; }
+.stage .card { background: var(--surface-card); border-radius: var(--radius-xl); box-shadow: var(--shadow-xl); padding: var(--space-8); }
+
+@media (max-width: 900px) {
+  .stage .wrap { grid-template-columns: 1fr; max-width: 460px; }
+  .stage .lede { display: none; }
+}
+
+/* ---- Responsive: collapse to mobile at 760px ---- */
+@media (max-width: 760px) {
+  .desktop-nav { display: none; }
+  .mobile-nav { display: flex; }
+  .tabbar { display: flex; }
+  .shell { flex-direction: column; }
+  .content { padding: var(--space-4) var(--space-4) 84px; }
+  .topbar { padding: 0 var(--space-4); }
+  .topbar .loc { display: none; }
+  .split-2col { grid-template-columns: 1fr !important; }
+  .member-header { grid-template-columns: 1fr !important; text-align: left; }
+  .member-header .m-photo { width: 128px !important; height: 128px !important; }
+  .hero-title { font-size: 40px !important; }
+  .feed-panel { position: fixed; top: 60px; right: 8px; left: 8px; width: auto; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * { transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; }
+}

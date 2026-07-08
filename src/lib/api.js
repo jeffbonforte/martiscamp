@@ -1,0 +1,244 @@
+import { supabase, isSupabaseConfigured } from './supabase.js';
+import { DATA as MOCK } from '../data/mockData.js';
+
+// ---------------------------------------------------------------------------
+// Data-access layer. When Supabase is configured, reads/writes go to the
+// database and are mapped into the SAME shape the screens already use (see
+// mockData.js). When it isn't, everything falls back to the mock so the UI is
+// fully functional offline. Weather (weekendDays/snowReport) always comes from
+// the mock here and is overlaid live by lib/weather.js in the shell.
+// ---------------------------------------------------------------------------
+
+export { isSupabaseConfigured };
+
+// The demo week (matches mockData + seed): day key <-> July 2025 date.
+const DAY_DATE = { thu: '2025-07-10', fri: '2025-07-11', sat: '2025-07-12', sun: '2025-07-13', mon: '2025-07-14', tue: '2025-07-15', wed: '2025-07-16' };
+const DATE_DAY = Object.fromEntries(Object.entries(DAY_DATE).map(([k, v]) => [v, k]));
+const DAY_ORDER = ['thu', 'fri', 'sat', 'sun', 'mon', 'tue', 'wed'];
+const DAY_LABEL = { thu: 'Thu', fri: 'Fri', sat: 'Sat', sun: 'Sun', mon: 'Mon', tue: 'Tue', wed: 'Wed' };
+const WEEKDAY_TO_KEY = { Thu: 'thu', Fri: 'fri', Sat: 'sat', Sun: 'sun', Mon: 'mon', Tue: 'tue', Wed: 'wed' };
+
+function presenceFrom(days) {
+  const sorted = [...new Set(days)].sort((a, b) => DAY_ORDER.indexOf(a) - DAY_ORDER.indexOf(b));
+  if (sorted.length === 0) return { here: false, label: 'Away', days: [] };
+  if (sorted.length >= 6) return { here: true, label: 'Here all week', days: sorted };
+  if (sorted[0] === 'sat') return { here: true, label: 'Arriving Sat', days: sorted };
+  if (sorted.includes('fri') && sorted.includes('sat') && sorted.includes('sun')) return { here: true, label: 'Here this weekend', days: sorted };
+  const a = DAY_LABEL[sorted[0]], b = DAY_LABEL[sorted[sorted.length - 1]];
+  return { here: true, label: a === b ? `Here ${a}` : `Here ${a}–${b}`, days: sorted };
+}
+
+function relativeTime(iso) {
+  if (!iso) return '';
+  const then = new Date(iso).getTime();
+  const mins = Math.max(0, Math.round((Date.now() - then) / 60000));
+  if (mins < 1) return 'Just now';
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.round(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  const days = Math.round(hrs / 24);
+  return days === 1 ? 'Yesterday' : `${days}d ago`;
+}
+
+// --- Auth -------------------------------------------------------------------
+
+export async function getSession() {
+  if (!isSupabaseConfigured) return null;
+  const { data } = await supabase.auth.getSession();
+  return data.session ?? null;
+}
+
+export function onAuthChange(cb) {
+  if (!isSupabaseConfigured) return () => {};
+  const { data } = supabase.auth.onAuthStateChange((_e, session) => cb(session));
+  return () => data.subscription.unsubscribe();
+}
+
+export async function signInWithEmail(email) {
+  if (!isSupabaseConfigured) return { ok: false, error: 'not-configured' };
+  const { error } = await supabase.auth.signInWithOtp({
+    email,
+    options: { emailRedirectTo: window.location.origin },
+  });
+  return error ? { ok: false, error: error.message } : { ok: true };
+}
+
+export async function signOut() {
+  if (isSupabaseConfigured) await supabase.auth.signOut();
+}
+
+// Link the signed-in auth user to their members row by email (first sign-in).
+async function ensureMemberLink(session) {
+  if (!session?.user?.email) return null;
+  const email = session.user.email;
+  let { data: me } = await supabase.from('members').select('id, name, family_id, is_admin').eq('user_id', session.user.id).maybeSingle();
+  if (!me) {
+    const { data: byEmail } = await supabase.from('members').select('id, name, family_id, is_admin').eq('email', email).maybeSingle();
+    if (byEmail) {
+      await supabase.from('members').update({ user_id: session.user.id, is_account: true }).eq('id', byEmail.id);
+      me = byEmail;
+    }
+  }
+  return me || null;
+}
+
+// --- Read -------------------------------------------------------------------
+
+/** Load the whole app dataset in the shape the screens expect. */
+export async function loadAppData() {
+  if (!isSupabaseConfigured) {
+    return { source: 'mock', favorites: ['reyes', 'm:Tom Bell'], ...MOCK };
+  }
+  const session = await getSession();
+  const me = session ? await ensureMemberLink(session) : null;
+
+  const [familiesRes, membersRes, attendanceRes, eventsRes, rsvpsRes, invitesRes, communityRes, feedRes, favoritesRes] = await Promise.all([
+    supabase.from('families').select('*').is('archived_at', null),
+    supabase.from('members').select('*').is('archived_at', null),
+    supabase.from('attendance').select('member_id, family_id, date'),
+    supabase.from('events').select('*').is('archived_at', null),
+    supabase.from('rsvps').select('event_id, member_id, status'),
+    supabase.from('event_invites').select('event_id, member_id'),
+    supabase.from('community_calendar').select('*'),
+    supabase.from('feed').select('*').order('created_at', { ascending: false }),
+    supabase.from('favorites').select('target_type, target_id'),
+  ]);
+
+  const families = familiesRes.data || [];
+  const members = membersRes.data || [];
+  const attendance = attendanceRes.data || [];
+  const events = eventsRes.data || [];
+  const rsvps = rsvpsRes.data || [];
+  const eInvites = invitesRes.data || [];
+  const community = communityRes.data || [];
+  const feed = feedRes.data || [];
+  const favoriteRows = favoritesRes.data || [];
+
+  const memberById = Object.fromEntries(members.map((m) => [m.id, m]));
+  const nameById = Object.fromEntries(members.map((m) => [m.id, m.name]));
+
+  // member_id -> [day keys]
+  const daysByMember = {};
+  for (const a of attendance) {
+    const key = DATE_DAY[a.date];
+    if (!key) continue;
+    (daysByMember[a.member_id] ||= []).push(key);
+  }
+
+  const familyById = Object.fromEntries(families.map((f) => [f.id, f]));
+  const membersByFamily = {};
+  for (const m of members) (membersByFamily[m.family_id] ||= []).push(m);
+
+  const mappedFamilies = families.map((f) => {
+    const fm = (membersByFamily[f.id] || []).map((m) => ({
+      name: m.name, role: m.role, photo: m.photo_url, tone: m.tone,
+      phone: m.phone, email: m.email, interests: m.interests || [],
+      days: (daysByMember[m.id] || []).sort((a, b) => DAY_ORDER.indexOf(a) - DAY_ORDER.indexOf(b)),
+    }));
+    const famDays = fm.flatMap((m) => m.days);
+    return {
+      id: f.slug, name: f.name, address: f.address, hometown: f.hometown,
+      cover: f.cover_photo_url, tone: f.tone,
+      interests: [...new Set(fm.flatMap((m) => m.interests))].slice(0, 4),
+      presence: presenceFrom(famDays),
+      members: fm,
+    };
+  });
+
+  // RSVPs grouped by event
+  const rsvpByEvent = {};
+  for (const r of rsvps) (rsvpByEvent[r.event_id] ||= []).push(r);
+  const invitesByEvent = {};
+  for (const i of eInvites) (invitesByEvent[i.event_id] ||= []).push(i.member_id);
+
+  const gatherings = events.map((ev) => {
+    const rs = rsvpByEvent[ev.id] || [];
+    const names = (st) => rs.filter((r) => r.status === st).map((r) => ({ name: nameById[r.member_id] })).filter((x) => x.name);
+    const weekdayTok = (ev.when_label || '').match(/^([A-Z][a-z]{2})/)?.[1];
+    const invitedIds = invitesByEvent[ev.id] || [];
+    const myRow = me ? rs.find((r) => r.member_id === me.id) : null;
+    return {
+      id: ev.slug, title: ev.title, amenity: ev.amenity, host: nameById[ev.host_member_id] || '',
+      day: WEEKDAY_TO_KEY[weekdayTok] || null, when: ev.when_label, where: ev.location,
+      capacity: ev.capacity, description: ev.description,
+      visibility: ev.visibility, youInvited: ev.visibility !== 'private' || (me ? invitedIds.includes(me.id) : true),
+      myRsvp: myRow ? myRow.status : null,
+      invited: invitedIds.map((id) => ({ name: nameById[id] })).filter((x) => x.name),
+      going: names('going'), maybe: names('maybe'), declined: names('declined'),
+    };
+  });
+
+  const communityEvents = community.map((c) => ({
+    day: c.day_of_month, dayKey: c.day_key, title: c.title, place: c.place, amenity: c.amenity, community: true,
+  }));
+
+  const mappedFeed = feed.map((it, i) => ({
+    id: it.id, kind: it.kind, who: it.actor_label, tone: it.tone, text: it.body,
+    when: relativeTime(it.created_at), unread: i < 4,
+    eventId: it.event_slug || undefined, familyId: it.family_slug || undefined,
+  }));
+
+  const favorites = favoriteRows.map((r) => {
+    if (r.target_type === 'family') return familyById[r.target_id]?.slug;
+    return nameById[r.target_id] ? `m:${nameById[r.target_id]}` : null;
+  }).filter(Boolean);
+
+  const meFamily = me ? familyById[me.family_id] : null;
+  const meOut = me
+    ? { name: me.name, familyId: meFamily ? meFamily.slug : MOCK.me.familyId, isAdmin: !!me.is_admin }
+    : MOCK.me;
+
+  return {
+    source: 'supabase',
+    me: meOut,
+    weekendDays: MOCK.weekendDays,
+    snowReport: MOCK.snowReport,
+    families: mappedFamilies.length ? mappedFamilies : MOCK.families,
+    gatherings: gatherings.length ? gatherings : MOCK.gatherings,
+    events: communityEvents.length ? communityEvents : MOCK.events,
+    feed: mappedFeed.length ? mappedFeed : MOCK.feed,
+    favorites,
+  };
+}
+
+// --- Mutations (Supabase only; no-ops when unconfigured) -------------------
+
+async function currentMemberId() {
+  const { data } = await supabase.rpc('current_member_id');
+  return data || null;
+}
+
+/** Persist an RSVP for the signed-in member on an event (by slug). */
+export async function persistRsvp(eventSlug, status) {
+  if (!isSupabaseConfigured) return;
+  const mid = await currentMemberId();
+  const { data: ev } = await supabase.from('events').select('id').eq('slug', eventSlug).maybeSingle();
+  if (!mid || !ev) return;
+  if (status == null) {
+    await supabase.from('rsvps').delete().match({ event_id: ev.id, member_id: mid });
+  } else {
+    await supabase.from('rsvps').upsert({ event_id: ev.id, member_id: mid, status }, { onConflict: 'event_id,member_id' });
+  }
+}
+
+/** Toggle a favorite. id is a family slug, or 'm:<Member Name>' for a member. */
+export async function persistFavorite(id, on) {
+  if (!isSupabaseConfigured) return;
+  const mid = await currentMemberId();
+  if (!mid) return;
+  let target_type, target_id;
+  if (id.startsWith('m:')) {
+    const { data: m } = await supabase.from('members').select('id').eq('name', id.slice(2)).maybeSingle();
+    if (!m) return;
+    target_type = 'member'; target_id = m.id;
+  } else {
+    const { data: f } = await supabase.from('families').select('id').eq('slug', id).maybeSingle();
+    if (!f) return;
+    target_type = 'family'; target_id = f.id;
+  }
+  if (on) {
+    await supabase.from('favorites').upsert({ member_id: mid, target_type, target_id }, { onConflict: 'member_id,target_type,target_id' });
+  } else {
+    await supabase.from('favorites').delete().match({ member_id: mid, target_type, target_id });
+  }
+}

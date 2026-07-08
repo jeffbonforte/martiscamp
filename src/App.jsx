@@ -1,0 +1,221 @@
+import React from 'react';
+import { Sidebar, Avatar } from './components/index.js';
+import { useLucide } from './lib/useLucide.js';
+import { useWeather } from './lib/weather.js';
+import { LOGO_BADGE } from './lib/images.js';
+import { DATA } from './data/mockData.js';
+import { loadAppData, persistFavorite, persistRsvp } from './lib/api.js';
+import { WhatsButton, feedGlyph } from './screens/shared.jsx';
+
+import { WeekendScreen } from './screens/Weekend.jsx';
+import { DirectoryScreen } from './screens/Directory.jsx';
+import { CalendarScreen } from './screens/CalendarScreen.jsx';
+import { GatheringsScreen } from './screens/Gatherings.jsx';
+import { UpdatesScreen } from './screens/Updates.jsx';
+import { AccountScreen } from './screens/Account.jsx';
+import { FamilyProfileScreen } from './screens/FamilyProfile.jsx';
+import { MemberProfileScreen } from './screens/MemberProfile.jsx';
+import { EventScreen } from './screens/Event.jsx';
+import { PlanVisit } from './screens/PlanVisit.jsx';
+import { HostDialog } from './screens/dialogs/HostDialog.jsx';
+import { EditProfileDialog } from './screens/dialogs/EditProfileDialog.jsx';
+import { AddToCalendarDialog } from './screens/dialogs/AddToCalendarDialog.jsx';
+
+const seasonOf = (d) => { const m = d.getMonth(); return (m <= 1 || m === 11) ? 'winter' : m <= 4 ? 'spring' : m <= 7 ? 'summer' : 'fall'; };
+
+export function App({ onSignOut }) {
+  // --- hooks (all unconditional, before any early return) ---
+  const { weekendDays, snow } = useWeather(DATA.weekendDays, DATA.snowReport);
+  const [, bump] = React.useReducer((x) => x + 1, 0);
+  const [base, setBase] = React.useState(null); // dataset from Supabase or mock
+  const [view, setView] = React.useState('weekend');
+  const [route, setRoute] = React.useState(null);
+  const [planOpen, setPlanOpen] = React.useState(false);
+  const [postType, setPostType] = React.useState('gathering');
+  const [seasonMode, setSeasonMode] = React.useState('auto');
+  const [favorites, setFavorites] = React.useState(new Set());
+  const [rsvpMap, setRsvpMap] = React.useState({});
+  const [feedOpen, setFeedOpen] = React.useState(false);
+  const [calEvent, setCalEvent] = React.useState(null);
+  const [editTarget, setEditTarget] = React.useState(null);
+
+  React.useEffect(() => {
+    let alive = true;
+    loadAppData().then((d) => {
+      if (!alive) return;
+      setBase(d);
+      setFavorites(new Set(d.favorites || []));
+      const seed = {};
+      (d.gatherings || []).forEach((g) => { if (g.myRsvp) seed[g.id] = g.myRsvp; });
+      setRsvpMap(seed);
+    });
+    return () => { alive = false; };
+  }, []);
+
+  useLucide();
+  React.useEffect(() => { document.querySelector('.content')?.scrollTo(0, 0); }, [view, route]);
+
+  const autoSeason = seasonOf(new Date());
+  const season = seasonMode === 'auto' ? autoSeason : seasonMode;
+
+  if (!base) {
+    return <div style={{ height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)', font: 'var(--role-body)' }}>Loading…</div>;
+  }
+
+  // --- derived from loaded data + live weather ---
+  const data = { ...base, weekendDays, snowReport: snow };
+  const me = base.me;
+  const owned = (f) => f && f.id === me.familyId;
+  const myFam = data.families.find((f) => f.id === me.familyId);
+  const myMember = myFam && myFam.members.find((m) => m.name === me.name);
+  const editMyProfile = () => setEditTarget({ type: 'member', family: myFam, member: myMember });
+
+  const toggleFav = (id) => setFavorites((s) => {
+    const n = new Set(s);
+    const on = !n.has(id);
+    on ? n.add(id) : n.delete(id);
+    persistFavorite(id, on); // persisted to Supabase when configured; no-op otherwise
+    return n;
+  });
+  const openFamily = (f) => { setFeedOpen(false); setRoute({ type: 'family', item: f }); };
+  const openEvent = (e) => { setFeedOpen(false); setRoute({ type: 'event', item: e }); };
+  const openMember = (f, m) => setRoute({ type: 'member', item: f, member: m });
+  const setRsvp = (id, v) => { setRsvpMap((m) => ({ ...m, [id]: v })); persistRsvp(id, v); };
+  const addToCalendar = (g) => setCalEvent(g);
+  const openPost = (type) => { setPostType(type); setPlanOpen(true); };
+
+  const feedGoto = (item) => {
+    setFeedOpen(false);
+    if (item.eventId) { const ev = data.gatherings.find((g) => g.id === item.eventId); if (ev) return openEvent(ev); }
+    if (item.familyId) { const f = data.families.find((x) => x.id === item.familyId); if (f) return openFamily(f); }
+  };
+  const unread = data.feed.filter((f) => f.unread).length;
+  const meFamilyLabel = myFam ? `The ${myFam.name}s` : 'The Bonfortes';
+
+  const nav = [
+    { key: 'weekend', label: 'Here now', icon: 'calendar-check' },
+    { key: 'directory', label: 'Directory', icon: 'users' },
+    { key: 'calendar', label: 'Calendar', icon: 'calendar' },
+    { key: 'gatherings', label: 'Get-togethers', icon: 'party-popper', badge: data.gatherings.length },
+    { key: 'updates', label: 'Updates', icon: 'bell', badge: unread || undefined },
+  ];
+  const go = (k) => { setRoute(null); setView(k); };
+
+  let body;
+  if (route?.type === 'family') {
+    body = <FamilyProfileScreen family={route.item} data={data} favorites={favorites}
+      onToggleFav={toggleFav} canEdit={owned(route.item)} onEdit={() => setEditTarget({ type: 'family', family: route.item })}
+      onBack={() => setRoute(null)} onOpenEvent={openEvent} onOpenMember={(m) => openMember(route.item, m)} />;
+  } else if (route?.type === 'member') {
+    body = <MemberProfileScreen family={route.item} member={route.member} data={data} favorites={favorites} onToggleFav={toggleFav}
+      canEdit={owned(route.item)} onEdit={() => setEditTarget({ type: 'member', family: route.item, member: route.member })}
+      onBack={() => openFamily(route.item)} onOpenFamily={() => openFamily(route.item)} onOpenEvent={openEvent} />;
+  } else if (route?.type === 'event') {
+    const ev = route.item;
+    body = <EventScreen event={ev} data={data} myRsvp={rsvpMap[ev.id] ?? ev.myRsvp} onRsvp={(v) => setRsvp(ev.id, v)} onBack={() => setRoute(null)} onAddCal={addToCalendar} />;
+  } else if (view === 'weekend') {
+    body = <WeekendScreen data={data} season={season} rsvpMap={rsvpMap} onPlan={() => openPost('gathering')} onOpenEvent={openEvent} onAddCal={addToCalendar} />;
+  } else if (view === 'directory') {
+    body = <DirectoryScreen data={data} favorites={favorites} onToggleFav={toggleFav} onOpen={openFamily} />;
+  } else if (view === 'calendar') {
+    body = <CalendarScreen data={data} season={season} favorites={favorites} onOpenEvent={openEvent} onPlanVisit={() => go('plan')} />;
+  } else if (view === 'plan') {
+    body = <PlanVisit data={data} onBack={() => go('calendar')} />;
+  } else if (view === 'gatherings') {
+    body = <GatheringsScreen data={data} onPlan={() => openPost('gathering')} onOpenEvent={openEvent} onAddCal={addToCalendar} rsvpMap={rsvpMap} />;
+  } else if (view === 'account') {
+    body = <AccountScreen me={me} member={myMember} family={myFam} onEditProfile={editMyProfile} onSignOut={onSignOut} />;
+  } else {
+    body = <UpdatesScreen data={data} onOpenEvent={openEvent} onOpenFamily={openFamily} onPost={() => openPost('announcement')} />;
+  }
+
+  return (
+    <div className="shell">
+      <div className="desktop-nav" style={{ display: 'flex' }}>
+        <Sidebar items={nav} active={route ? null : view} onSelect={go} logo={LOGO_BADGE}
+          footer={<button type="button" onClick={() => go('account')} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 4px', width: '100%', border: 'none', cursor: 'pointer', borderRadius: 'var(--radius-md)', textAlign: 'left', background: (!route && view === 'account') ? 'var(--brand-soft)' : 'transparent' }}>
+            <Avatar name={me.name} src={myMember && myMember.photo} size="sm" />
+            <div style={{ minWidth: 0, flex: 1 }}>
+              <div style={{ font: 'var(--fw-semibold) var(--text-sm)/1.1 var(--font-sans)', color: 'var(--text-strong)' }}>{me.name}</div>
+              <div style={{ font: 'var(--text-xs) var(--font-sans)', color: 'var(--text-muted)' }}>{meFamilyLabel}</div>
+            </div>
+            <i data-lucide="settings" style={{ width: 16, height: 16, color: 'var(--text-faint)' }} />
+          </button>} />
+      </div>
+
+      <div className="main">
+        <div className="topbar">
+          <div className="loc" style={{ display: 'flex', alignItems: 'center', gap: 10, font: 'var(--role-small)', color: 'var(--text-muted)' }}>
+            <i data-lucide="map-pin" style={{ width: 16, height: 16 }} /> Martis Camp · Truckee, CA
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+            <select value={seasonMode} onChange={(e) => setSeasonMode(e.target.value)} className="seasonSelect" aria-label="Season">
+              <option value="auto">Auto · {autoSeason.charAt(0).toUpperCase() + autoSeason.slice(1)}</option>
+              <option value="winter">Winter</option>
+              <option value="spring">Spring</option>
+              <option value="summer">Summer</option>
+              <option value="fall">Fall</option>
+            </select>
+            <WhatsButton size="sm" label="WhatsApp" />
+            <button type="button" aria-label="Notifications" onClick={() => setFeedOpen((o) => !o)}
+              style={{ position: 'relative', display: 'inline-flex', border: 'none', background: feedOpen ? 'var(--surface-sunk)' : 'transparent', cursor: 'pointer', padding: 8, borderRadius: 'var(--radius-md)' }}>
+              <i data-lucide="bell" style={{ width: 20, height: 20, color: feedOpen ? 'var(--brand)' : 'var(--text-muted)' }} />
+              {unread > 0 && <span style={{ position: 'absolute', top: 2, right: 2, minWidth: 15, height: 15, padding: '0 4px', borderRadius: '999px', background: 'var(--danger)', color: '#fff', font: 'var(--fw-semibold) 9px/15px var(--font-sans)', textAlign: 'center', border: '1.5px solid var(--surface-card)' }}>{unread}</span>}
+            </button>
+            <button type="button" aria-label="Your account" onClick={() => go('account')}
+              style={{ border: 'none', background: 'transparent', cursor: 'pointer', padding: 2, borderRadius: '999px', display: 'inline-flex' }}>
+              <Avatar name={me.name} src={myMember && myMember.photo} size="sm" ring={!route && view === 'account'} />
+            </button>
+          </div>
+        </div>
+
+        <div className="content">
+          <div className="inner">{body}</div>
+        </div>
+
+        {feedOpen && (
+          <div className="feed-panel">
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: 'var(--space-4) var(--space-5)', borderBottom: '1px solid var(--divider)' }}>
+              <div style={{ font: 'var(--role-h3)', color: 'var(--text-strong)' }}>Activity</div>
+              <button type="button" onClick={() => setFeedOpen(false)} aria-label="Close" style={{ border: 'none', background: 'transparent', cursor: 'pointer', color: 'var(--text-muted)', display: 'inline-flex' }}><i data-lucide="x" style={{ width: 18, height: 18 }} /></button>
+            </div>
+            <div style={{ maxHeight: 'min(70vh, 460px)', overflow: 'auto' }}>
+              {data.feed.map((it) => (
+                <button key={it.id} type="button" onClick={() => feedGoto(it)}
+                  style={{ display: 'flex', gap: 12, width: '100%', textAlign: 'left', border: 'none', cursor: 'pointer', padding: 'var(--space-3) var(--space-5)', borderBottom: '1px solid var(--divider)', background: it.unread ? 'var(--pine-50)' : 'transparent' }}>
+                  <span style={{ flexShrink: 0, width: 34, height: 34, borderRadius: '50%', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: `color-mix(in srgb, ${it.tone} 16%, var(--snow))`, color: it.tone }}>
+                    <i data-lucide={feedGlyph(it.kind)} style={{ width: 16, height: 16 }} />
+                  </span>
+                  <span style={{ minWidth: 0, flex: 1 }}>
+                    <span style={{ font: 'var(--role-small)', color: 'var(--text-body)' }}><b style={{ color: 'var(--text-strong)', fontWeight: 'var(--fw-semibold)' }}>{it.who}</b> {it.text}</span>
+                    <span style={{ display: 'block', font: 'var(--text-2xs) var(--font-mono)', color: 'var(--text-faint)', marginTop: 3 }}>{it.when}</span>
+                  </span>
+                  {it.unread && <span style={{ flexShrink: 0, width: 8, height: 8, borderRadius: '50%', background: 'var(--brand)', marginTop: 6 }} />}
+                </button>
+              ))}
+            </div>
+            <div style={{ padding: 'var(--space-3) var(--space-5)', borderTop: '1px solid var(--divider)', textAlign: 'center' }}>
+              <button type="button" onClick={() => { setFeedOpen(false); go('updates'); }} style={{ border: 'none', background: 'transparent', cursor: 'pointer', font: 'var(--fw-semibold) var(--text-xs) var(--font-sans)', color: 'var(--text-link)' }}>See all updates</button>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Mobile bottom tab bar */}
+      <nav className="mobile-nav tabbar">
+        {nav.map((it) => (
+          <button key={it.key} type="button" data-on={!route && view === it.key} onClick={() => go(it.key)}>
+            <i data-lucide={it.icon} style={{ width: 22, height: 22 }} />
+            <span>{it.label.split(' ')[0]}</span>
+          </button>
+        ))}
+      </nav>
+
+      <HostDialog open={planOpen} initialType={postType} onClose={() => setPlanOpen(false)} />
+      <EditProfileDialog target={editTarget} weekendDays={data.weekendDays} onClose={() => setEditTarget(null)} onSaved={bump} />
+      <AddToCalendarDialog event={calEvent} onClose={() => setCalEvent(null)} />
+    </div>
+  );
+}
+
+export default App;

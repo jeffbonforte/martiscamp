@@ -1,0 +1,136 @@
+/* ============================================================
+   COLORS — Martis Camp Families
+   Alpine-luxury palette: evergreen, warm cedar, granite stone,
+   alpine-lake blue, snow. Base ramps + semantic aliases.
+   ============================================================ */
+
+:root {
+  /* ---- Pine / Evergreen (primary brand) ---- */
+  --pine-950: #0f1f17;
+  --pine-900: #142a1e;
+  --pine-800: #1b3a2a;
+  --pine-700: #234b36;   /* primary */
+  --pine-600: #2f5e45;
+  --pine-500: #3d7355;
+  --pine-400: #5b9070;
+  --pine-300: #8bb69a;
+  --pine-200: #c0d8c8;
+  --pine-100: #e2eee7;
+  --pine-50:  #f1f7f3;
+
+  /* ---- Cedar / Warm wood (secondary, warm accent) ---- */
+  --cedar-900: #3a2417;
+  --cedar-800: #543421;
+  --cedar-700: #6f462c;
+  --cedar-600: #8a5a3a;   /* warm accent */
+  --cedar-500: #a06f4b;
+  --cedar-400: #bb8f6b;
+  --cedar-300: #d4b394;
+  --cedar-200: #e7d3bd;
+  --cedar-100: #f3e7d9;
+  --cedar-50:  #faf3ea;
+
+  /* ---- Alpine Lake (cool accent / links) ---- */
+  --lake-900: #0d2f3d;
+  --lake-800: #124355;
+  --lake-700: #185c73;
+  --lake-600: #1f7691;   /* accent */
+  --lake-500: #2e91ad;
+  --lake-400: #58aec6;
+  --lake-300: #8fcbdc;
+  --lake-200: #c1e3ec;
+  --lake-100: #e2f2f6;
+  --lake-50:  #f0f8fa;
+
+  /* ---- Granite / Stone (neutrals) ---- */
+  --stone-950: #16181a;
+  --stone-900: #1f2124;
+  --stone-800: #2d3034;
+  --stone-700: #414549;
+  --stone-600: #585d63;
+  --stone-500: #737980;
+  --stone-400: #969ba1;
+  --stone-300: #bcc0c4;
+  --stone-200: #d9dcde;
+  --stone-100: #eceef0;
+  --stone-50:  #f6f7f8;
+
+  /* ---- Snow / warm paper backgrounds ---- */
+  --snow: #ffffff;
+  --paper: #faf9f6;      /* warm off-white app canvas */
+  --paper-sunk: #f3f1ec;
+
+  /* ---- Official Martis Camp logo colors (reference) ---- */
+  --logo-brown-dark: #3d2413; /* @kind color */  /* outline / darkest */
+  --logo-brown: #6e4423;      /* @kind color */  /* primary logo brown */
+  --logo-caramel: #a06f3f;    /* @kind color */  /* mid caramel */
+  --logo-cream: #f2e6cf;      /* @kind color */  /* shield fill */
+  --logo-field: #5a3925;      /* @kind color */  /* brown background field */
+
+  /* ---- Semantic hues ---- */
+  --green-600: #2f7d4f;
+  --green-100: #e0f0e6;
+  --amber-600: #b7791f;
+  --amber-100: #f7ecd3;
+  --red-600:   #b5443a;
+  --red-100:   #f6e0dd;
+  --blue-600:  #1f7691;
+  --blue-100:  #e2f2f6;
+
+  /* ============ SEMANTIC ALIASES ============ */
+
+  /* Brand */
+  --brand: var(--pine-700);
+  --brand-hover: var(--pine-800);
+  --brand-active: var(--pine-900);
+  --brand-soft: var(--pine-100);
+  --brand-contrast: var(--snow);
+
+  --accent: var(--lake-600);
+  --accent-soft: var(--lake-100);
+  --warm: var(--cedar-600);
+  --warm-soft: var(--cedar-100);
+
+  /* Surfaces */
+  --surface-page: var(--paper);
+  --surface-card: var(--snow);
+  --surface-sunk: var(--paper-sunk);
+  --surface-raised: var(--snow);
+  --surface-inverse: var(--pine-900);
+
+  /* Text */
+  --text-strong: var(--stone-900);
+  --text-body: var(--stone-700);
+  --text-muted: var(--stone-500);
+  --text-faint: var(--stone-400);
+  --text-on-brand: var(--snow);
+  --text-link: var(--lake-700);
+
+  /* Borders / lines */
+  --border: var(--stone-200);
+  --border-strong: var(--stone-300);
+  --border-soft: var(--stone-100);
+  --divider: var(--stone-100);
+
+  /* Focus ring */
+  --focus-ring: var(--lake-500);
+
+  /* Semantic states */
+  --success: var(--green-600);
+  --success-soft: var(--green-100);
+  --warning: var(--amber-600);
+  --warning-soft: var(--amber-100);
+  --danger: var(--red-600);
+  --danger-soft: var(--red-100);
+  --info: var(--blue-600);
+  --info-soft: var(--blue-100);
+
+  /* Activity accent hues (for amenity tags: ski, golf, tennis, etc.) */
+  --act-ski: var(--lake-600);
+  --act-golf: var(--pine-600);
+  --act-tennis: var(--cedar-600);
+  --act-pool: #3a8fb0;
+  --act-dining: var(--red-600);
+  --act-hike: #6b7f3a;
+  --act-social: #7a5a8f;
+}

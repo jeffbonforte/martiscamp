@@ -1,0 +1,11 @@
+/* ============================================================
+   FONTS — loaded from Google Fonts CDN.
+   NOTE: These are curated substitutes chosen to match the
+   alpine-editorial Martis Camp feel — NOT the resort's actual
+   licensed typefaces. See readme.md "Font substitution".
+   Display: Newsreader (warm editorial serif)
+   UI/Body: Libre Franklin (clean humanist grotesque)
+   Mono:    IBM Plex Mono (labels, times, codes)
+   ============================================================ */
+
+@import url('https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,300..700;1,6..72,300..600&family=Libre+Franklin:ital,wght@0,300..700;1,400..600&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
