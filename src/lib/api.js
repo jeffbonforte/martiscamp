@@ -137,7 +137,7 @@ export async function loadAppData() {
     return {
       id: f.slug, name: f.name, address: f.address, hometown: f.hometown,
       cover: f.cover_photo_url, tone: f.tone,
-      interests: [...new Set(fm.flatMap((m) => m.interests))].slice(0, 4),
+      interests: (f.interests && f.interests.length) ? f.interests : [...new Set(fm.flatMap((m) => m.interests))].slice(0, 4),
       presence: presenceFrom(famDays),
       members: fm,
     };
@@ -341,4 +341,138 @@ export async function saveVisitPlan(scope, dateKeys, fromKey) {
   for (const id of ids) for (const d of dateKeys) rows.push({ member_id: id, family_id: famId, date: d, created_by: mid, status: 'planned' });
   if (rows.length) await supabase.from('attendance').upsert(rows, { onConflict: 'member_id,date' });
   return { ok: true };
+}
+
+// --- Profile edits -------------------------------------------------------
+
+export async function persistFamilyEdit(slug, fields) {
+  if (!isSupabaseConfigured) return { ok: false, offline: true };
+  const patch = {};
+  ['name', 'address', 'hometown'].forEach((k) => { if (fields[k] !== undefined) patch[k] = fields[k]; });
+  if (fields.cover !== undefined) patch.cover_photo_url = fields.cover;
+  if (fields.interests !== undefined) patch.interests = fields.interests;
+  const { error } = await supabase.from('families').update(patch).eq('slug', slug);
+  return error ? { ok: false, error: error.message } : { ok: true };
+}
+
+export async function persistMemberEdit(originalName, fields) {
+  if (!isSupabaseConfigured) return { ok: false, offline: true };
+  const { data: m } = await supabase.from('members').select('id, family_id').eq('name', originalName).maybeSingle();
+  if (!m) return { ok: false, error: 'Member not found.' };
+  const patch = {};
+  ['name', 'role', 'phone', 'email'].forEach((k) => { if (fields[k] !== undefined) patch[k] = fields[k]; });
+  if (fields.interests !== undefined) patch.interests = fields.interests;
+  if (fields.photo !== undefined) patch.photo_url = fields.photo;
+  const { error } = await supabase.from('members').update(patch).eq('id', m.id);
+  if (error) return { ok: false, error: error.message };
+  if (Array.isArray(fields.days)) {
+    const weekDates = Object.values(DAY_DATE);
+    await supabase.from('attendance').delete().eq('member_id', m.id).in('date', weekDates);
+    const rows = fields.days.map((k) => DAY_DATE[k]).filter(Boolean).map((d) => ({ member_id: m.id, family_id: m.family_id, date: d, status: 'planned' }));
+    if (rows.length) await supabase.from('attendance').upsert(rows, { onConflict: 'member_id,date' });
+  }
+  return { ok: true };
+}
+
+// --- Comments on get-togethers -------------------------------------------
+
+export async function loadComments(eventSlug) {
+  if (!isSupabaseConfigured) return [];
+  const { data: ev } = await supabase.from('events').select('id').eq('slug', eventSlug).maybeSingle();
+  if (!ev) return [];
+  const { data } = await supabase.from('comments').select('id, body, created_at, member_id')
+    .eq('subject_type', 'event').eq('subject_id', ev.id).is('hidden_at', null).order('created_at', { ascending: true });
+  const rows = data || [];
+  const ids = [...new Set(rows.map((r) => r.member_id))];
+  let names = {};
+  if (ids.length) {
+    const { data: ms } = await supabase.from('members').select('id, name, photo_url, tone').in('id', ids);
+    names = Object.fromEntries((ms || []).map((m) => [m.id, m]));
+  }
+  return rows.map((r) => ({
+    id: r.id, body: r.body, when: relativeTime(r.created_at),
+    who: names[r.member_id]?.name || 'Someone', photo: names[r.member_id]?.photo_url, tone: names[r.member_id]?.tone,
+  }));
+}
+
+export async function addComment(eventSlug, body) {
+  if (!isSupabaseConfigured) return { ok: false, offline: true };
+  const mid = await currentMemberId();
+  const { data: ev } = await supabase.from('events').select('id').eq('slug', eventSlug).maybeSingle();
+  if (!mid || !ev) return { ok: false };
+  const { error } = await supabase.from('comments').insert({ subject_type: 'event', subject_id: ev.id, member_id: mid, body });
+  return error ? { ok: false, error: error.message } : { ok: true };
+}
+
+// --- Admin (RLS gates these to admins) -----------------------------------
+
+export async function listInvites() {
+  if (!isSupabaseConfigured) return [];
+  const { data } = await supabase.from('invites').select('id, email, accepted_at, revoked_at, created_at, family_id').order('created_at', { ascending: false });
+  const rows = data || [];
+  const famIds = [...new Set(rows.map((r) => r.family_id).filter(Boolean))];
+  let fams = {};
+  if (famIds.length) { const { data: fs } = await supabase.from('families').select('id, name').in('id', famIds); fams = Object.fromEntries((fs || []).map((f) => [f.id, f.name])); }
+  return rows.map((r) => ({ id: r.id, email: r.email, family: r.family_id ? fams[r.family_id] : null, status: r.revoked_at ? 'revoked' : r.accepted_at ? 'accepted' : 'pending' }));
+}
+
+export async function createInvite(email, familySlug) {
+  if (!isSupabaseConfigured) return { ok: false, offline: true };
+  let family_id = null;
+  if (familySlug) { const { data: f } = await supabase.from('families').select('id').eq('slug', familySlug).maybeSingle(); family_id = f?.id || null; }
+  const mid = await currentMemberId();
+  const { error } = await supabase.from('invites').insert({ email, family_id, invited_by: mid });
+  return error ? { ok: false, error: error.message } : { ok: true };
+}
+
+export async function revokeInvite(id) {
+  if (!isSupabaseConfigured) return { ok: false };
+  const { error } = await supabase.from('invites').update({ revoked_at: new Date().toISOString() }).eq('id', id);
+  return error ? { ok: false, error: error.message } : { ok: true };
+}
+
+export async function createFamily(name) {
+  if (!isSupabaseConfigured) return { ok: false, offline: true };
+  const { error } = await supabase.from('families').insert({ slug: `${slugify(name)}-${shortId()}`, name, tone: 'var(--pine-600)' });
+  return error ? { ok: false, error: error.message } : { ok: true };
+}
+
+export async function archiveFamily(slug) {
+  if (!isSupabaseConfigured) return { ok: false };
+  const { error } = await supabase.from('families').update({ archived_at: new Date().toISOString() }).eq('slug', slug);
+  return error ? { ok: false, error: error.message } : { ok: true };
+}
+
+export async function listCommunity() {
+  if (!isSupabaseConfigured) return [];
+  const { data } = await supabase.from('community_calendar').select('id, title, place, amenity, day_of_month, day_key').order('day_of_month', { ascending: true });
+  return data || [];
+}
+
+export async function createCommunityEvent({ title, place, amenity, dayKey, dayOfMonth }) {
+  if (!isSupabaseConfigured) return { ok: false, offline: true };
+  const { error } = await supabase.from('community_calendar').insert({ title, place, amenity: amenity || null, day_key: dayKey || null, day_of_month: dayOfMonth || null, is_community: true });
+  return error ? { ok: false, error: error.message } : { ok: true };
+}
+
+export async function deleteCommunityEvent(id) {
+  if (!isSupabaseConfigured) return { ok: false };
+  const { error } = await supabase.from('community_calendar').delete().eq('id', id);
+  return error ? { ok: false, error: error.message } : { ok: true };
+}
+
+// --- Photo upload to Storage ---------------------------------------------
+
+const BUCKET = { member: 'member-photos', cover: 'family-covers', event: 'event-photos' };
+
+export async function uploadPhoto(kind, file) {
+  if (!isSupabaseConfigured) return { ok: false, offline: true };
+  if (!file) return { ok: false, error: 'No file.' };
+  const bucket = BUCKET[kind] || 'event-photos';
+  const ext = (file.name?.split('.').pop() || 'jpg').toLowerCase().replace(/[^a-z0-9]/g, '') || 'jpg';
+  const path = `${Date.now()}-${shortId()}.${ext}`;
+  const { error } = await supabase.storage.from(bucket).upload(path, file, { upsert: false, contentType: file.type || undefined });
+  if (error) return { ok: false, error: error.message };
+  const { data } = supabase.storage.from(bucket).getPublicUrl(path);
+  return { ok: true, url: data.publicUrl };
 }

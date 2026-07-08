@@ -17,6 +17,7 @@ import { FamilyProfileScreen } from './screens/FamilyProfile.jsx';
 import { MemberProfileScreen } from './screens/MemberProfile.jsx';
 import { EventScreen } from './screens/Event.jsx';
 import { PlanVisit } from './screens/PlanVisit.jsx';
+import { AdminScreen } from './screens/Admin.jsx';
 import { HostDialog } from './screens/dialogs/HostDialog.jsx';
 import { EditProfileDialog } from './screens/dialogs/EditProfileDialog.jsx';
 import { AddToCalendarDialog } from './screens/dialogs/AddToCalendarDialog.jsx';
@@ -100,6 +101,7 @@ export function App({ onSignOut }) {
     { key: 'gatherings', label: 'Get-togethers', icon: 'party-popper', badge: data.gatherings.length },
     { key: 'updates', label: 'Updates', icon: 'bell', badge: unread || undefined },
   ];
+  if (me.isAdmin) nav.push({ key: 'admin', label: 'Admin', icon: 'shield' });
   const go = (k) => { setRoute(null); setView(k); };
 
   let body;
@@ -126,6 +128,8 @@ export function App({ onSignOut }) {
     body = <GatheringsScreen data={data} onPlan={() => openPost('gathering')} onOpenEvent={openEvent} onAddCal={addToCalendar} rsvpMap={rsvpMap} />;
   } else if (view === 'account') {
     body = <AccountScreen me={me} member={myMember} family={myFam} onEditProfile={editMyProfile} onSignOut={onSignOut} />;
+  } else if (view === 'admin') {
+    body = <AdminScreen data={data} onReload={reload} onEditFamily={(f) => setEditTarget({ type: 'family', family: f })} />;
   } else {
     body = <UpdatesScreen data={data} onOpenEvent={openEvent} onOpenFamily={openFamily} onPost={() => openPost('announcement')} />;
   }
@@ -213,7 +217,7 @@ export function App({ onSignOut }) {
       </nav>
 
       <HostDialog open={planOpen} initialType={postType} onClose={() => setPlanOpen(false)} onCreated={reload} />
-      <EditProfileDialog target={editTarget} weekendDays={data.weekendDays} onClose={() => setEditTarget(null)} onSaved={bump} />
+      <EditProfileDialog target={editTarget} weekendDays={data.weekendDays} onClose={() => setEditTarget(null)} onSaved={bump} onReload={reload} />
       <AddToCalendarDialog event={calEvent} onClose={() => setCalEvent(null)} />
     </div>
   );

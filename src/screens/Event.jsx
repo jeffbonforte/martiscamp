@@ -1,15 +1,36 @@
 import React from 'react';
-import { Avatar, AmenityTag, Button, Card, RsvpControl } from '../components/index.js';
+import { Avatar, AmenityTag, Button, Card, RsvpControl, Input } from '../components/index.js';
 import { useLucide } from '../lib/useLucide.js';
 import { activityImage } from '../lib/images.js';
+import { loadComments, addComment } from '../lib/api.js';
 import { WhatsButton } from './shared.jsx';
 
-/** Get-together detail: hero, RSVP, auto-collected contacts, WhatsApp handoff. */
+/** Get-together detail: hero, RSVP, auto-collected contacts, comments, WhatsApp. */
 export function EventScreen({ event, data, myRsvp, onRsvp, onBack, onAddCal }) {
   const isPrivate = event.visibility === 'private';
   const banner = activityImage(event.amenity);
   const me = data.me.name;
+  const [comments, setComments] = React.useState([]);
+  const [newComment, setNewComment] = React.useState('');
+  const [posting, setPosting] = React.useState(false);
   useLucide();
+
+  React.useEffect(() => {
+    let alive = true;
+    loadComments(event.id).then((cs) => { if (alive) setComments(cs); });
+    return () => { alive = false; };
+  }, [event.id]);
+
+  const postComment = async () => {
+    const body = newComment.trim();
+    if (!body) return;
+    setPosting(true);
+    const r = await addComment(event.id, body);
+    setPosting(false);
+    setNewComment('');
+    if (r.ok) { const cs = await loadComments(event.id); setComments(cs); }
+    else { setComments((c) => [...c, { id: `local-${c.length}`, who: me, body, when: 'Just now', tone: 'var(--pine-600)' }]); }
+  };
 
   const lists = { going: [...event.going], maybe: [...event.maybe], declined: [...event.declined] };
   ['going', 'maybe', 'declined'].forEach((k) => { lists[k] = lists[k].filter((p) => p.name !== me); });
@@ -102,6 +123,31 @@ export function EventScreen({ event, data, myRsvp, onRsvp, onBack, onAddCal }) {
               ))}
             </div>
             <WhatsButton block label="Start a WhatsApp group with everyone coming" />
+          </Card>
+
+          {/* Comments */}
+          <Card style={{ marginTop: 'var(--space-5)' }}>
+            <div style={{ font: 'var(--role-h3)', color: 'var(--text-strong)', marginBottom: 'var(--space-4)' }}>Comments</div>
+            {comments.length === 0
+              ? <div style={{ font: 'var(--role-small)', color: 'var(--text-faint)' }}>No comments yet — start the conversation.</div>
+              : <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
+                  {comments.map((c) => (
+                    <div key={c.id} style={{ display: 'flex', gap: 10 }}>
+                      <Avatar name={c.who} src={c.photo} tone={c.tone} size="sm" />
+                      <div style={{ minWidth: 0 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                          <span style={{ font: 'var(--fw-semibold) var(--text-sm)/1.1 var(--font-sans)', color: 'var(--text-strong)' }}>{c.who}</span>
+                          <span style={{ font: 'var(--text-2xs) var(--font-mono)', color: 'var(--text-faint)' }}>{c.when}</span>
+                        </div>
+                        <div style={{ font: 'var(--role-small)', color: 'var(--text-body)', marginTop: 2 }}>{c.body}</div>
+                      </div>
+                    </div>
+                  ))}
+                </div>}
+            <div style={{ display: 'flex', gap: 8, marginTop: 'var(--space-4)' }}>
+              <div style={{ flex: 1 }}><Input placeholder="Add a comment…" value={newComment} onChange={(e) => setNewComment(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') postComment(); }} /></div>
+              <Button onClick={postComment} disabled={posting || !newComment.trim()}>{posting ? 'Posting…' : 'Post'}</Button>
+            </div>
           </Card>
         </div>
 
