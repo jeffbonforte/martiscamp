@@ -3,7 +3,7 @@ import { Dialog, Button, Input, Select, Avatar, AMENITIES } from '../../componen
 import { useLucide } from '../../lib/useLucide.js';
 import { persistFamilyEdit, persistMemberEdit, uploadPhoto } from '../../lib/api.js';
 import { coverUrl } from '../../lib/images.js';
-import { ChipMulti } from './common.jsx';
+import { ChipMulti, CoverPositioner } from './common.jsx';
 
 const AMENITY_KEYS = Object.keys(AMENITIES);
 const COVER_OPTIONS = ['family/bonfortes.jpg', 'lodge.jpg', 'ski-lodge.jpg', 'family-barn.jpg', 'treehouse-park.jpg', 'golf-summer.jpg', 'camp-lodge-winter-aerial.jpg'];
@@ -38,14 +38,20 @@ export function EditProfileDialog({ target, weekendDays, onClose, onSaved, onRel
     setUploading(true);
     const r = await uploadPhoto(isFam ? 'cover' : 'member', file);
     setUploading(false);
-    if (r.ok) set(isFam ? 'cover' : 'photo', r.url);
-    else set(isFam ? 'cover' : 'photo', URL.createObjectURL(file)); // mock/offline: local preview
+    const url = r.ok ? r.url : URL.createObjectURL(file); // mock/offline: local preview
+    if (isFam) {
+      // New family photo: start slightly above center so heads aren't cropped,
+      // then the host fine-tunes with the positioner.
+      setForm((f) => ({ ...f, cover: url, coverPos: '50% 38%' }));
+    } else {
+      set('photo', url);
+    }
   };
 
   const save = async () => {
     setBusy(true);
     if (isFam) {
-      await persistFamilyEdit(obj.id, { name: form.name, address: form.address, hometown: form.hometown, cover: form.cover, interests: form.interests });
+      await persistFamilyEdit(obj.id, { name: form.name, address: form.address, hometown: form.hometown, cover: form.cover, coverPos: form.coverPos, interests: form.interests });
     } else {
       await persistMemberEdit(originalName, { name: form.name, role: form.role, phone: form.phone, email: form.email, interests: form.interests, days: form.days, photo: form.photo });
     }
@@ -73,14 +79,18 @@ export function EditProfileDialog({ target, weekendDays, onClose, onSaved, onRel
               <Input label="Family name" value={form.name} onChange={(e) => set('name', e.target.value)} hint="Shown as “The ‹name›s”" />
               <Select label="Cover photo" options={COVER_OPTIONS.map((c) => ({ value: c, label: c.split('/').pop().replace(/\.[a-z]+$/, '').replace(/-/g, ' ') }))} value={form.cover} onChange={(e) => set('cover', e.target.value)} />
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-              <div style={{ width: 96, height: 56, borderRadius: 'var(--radius-md)', overflow: 'hidden', background: `color-mix(in srgb, ${form.tone || 'var(--pine-600)'} 22%, var(--snow))`, flexShrink: 0 }}>
-                <img src={coverUrl(form.cover)} alt="" onError={(e) => { e.currentTarget.style.display = 'none'; }} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <CoverPositioner src={coverUrl(form.cover)} value={form.coverPos} onChange={(v) => set('coverPos', v)} />
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+                <label style={uploadBtnStyle}>
+                  <i data-lucide="upload" style={{ width: 14, height: 14 }} /> {uploading ? 'Uploading…' : 'Upload a cover'}
+                  <input type="file" accept="image/*" onChange={onFile} style={{ display: 'none' }} />
+                </label>
+                <button type="button" onClick={() => set('coverPos', '50% 50%')}
+                  style={{ border: 'none', background: 'transparent', cursor: 'pointer', color: 'var(--text-muted)', font: 'var(--fw-semibold) var(--text-sm)/1 var(--font-sans)', padding: 4 }}>
+                  Center
+                </button>
               </div>
-              <label style={uploadBtnStyle}>
-                <i data-lucide="upload" style={{ width: 14, height: 14 }} /> {uploading ? 'Uploading…' : 'Upload a cover'}
-                <input type="file" accept="image/*" onChange={onFile} style={{ display: 'none' }} />
-              </label>
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
               <Input label="Street address" value={form.address || ''} onChange={(e) => set('address', e.target.value)} placeholder="One line is plenty" />

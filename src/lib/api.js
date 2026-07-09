@@ -136,7 +136,7 @@ export async function loadAppData() {
     const famDays = fm.flatMap((m) => m.days);
     return {
       id: f.slug, name: f.name, address: f.address, hometown: f.hometown,
-      cover: f.cover_photo_url, tone: f.tone,
+      cover: f.cover_photo_url, coverPos: f.cover_photo_pos, tone: f.tone,
       interests: (f.interests && f.interests.length) ? f.interests : [...new Set(fm.flatMap((m) => m.interests))].slice(0, 4),
       presence: presenceFrom(famDays),
       members: fm,
@@ -350,6 +350,7 @@ export async function persistFamilyEdit(slug, fields) {
   const patch = {};
   ['name', 'address', 'hometown'].forEach((k) => { if (fields[k] !== undefined) patch[k] = fields[k]; });
   if (fields.cover !== undefined) patch.cover_photo_url = fields.cover;
+  if (fields.coverPos !== undefined) patch.cover_photo_pos = fields.coverPos;
   if (fields.interests !== undefined) patch.interests = fields.interests;
   const { error } = await supabase.from('families').update(patch).eq('slug', slug);
   return error ? { ok: false, error: error.message } : { ok: true };

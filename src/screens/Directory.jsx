@@ -14,8 +14,9 @@ function FavoriteTile({ family, onOpen }) {
         border: 'none', padding: 0, cursor: 'pointer', boxShadow: hover ? 'var(--shadow-md)' : 'var(--shadow-sm)',
         background: `color-mix(in srgb, ${family.tone} 30%, var(--pine-900))`,
         transform: hover ? 'translateY(-2px)' : 'none', transition: 'box-shadow var(--dur-base), transform var(--dur-base)' }}>
-      <img src={coverUrl(family.cover)} alt="" onError={(e) => { e.currentTarget.style.display = 'none'; }}
-        style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center 45%' }} />
+      <img src={coverUrl(family.cover)} alt=""
+        onError={(e) => { e.currentTarget.style.opacity = '0'; }} onLoad={(e) => { e.currentTarget.style.opacity = '1'; }}
+        style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', objectPosition: family.coverPos || 'center 45%' }} />
       <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(20,15,10,.8) 0%, rgba(20,15,10,.05) 60%)' }} />
       <i data-lucide="star" style={{ position: 'absolute', top: 8, right: 8, width: 15, height: 15, color: 'var(--warning)', fill: 'var(--warning)' }} />
       <div style={{ position: 'absolute', left: 10, right: 10, bottom: 9, textAlign: 'left' }}>

@@ -31,7 +31,7 @@ function MemberDot({ m, tone, first }) {
 export function FamilyCard({
   family = {}, cover, onOpen, favorite, onToggleFavorite, style = {},
 }) {
-  const { name = 'Family', address, members = [], interests = [], presence, tone = 'var(--pine-600)' } = family;
+  const { name = 'Family', address, members = [], interests = [], presence, tone = 'var(--pine-600)', coverPos } = family;
   const [hover, setHover] = React.useState(false);
   const here = presence && presence.here;
 
@@ -55,11 +55,13 @@ export function FamilyCard({
       {/* Cover banner */}
       <div style={{ position: 'relative', height: 128, background: `color-mix(in srgb, ${tone} 22%, var(--snow))` }}>
         {cover && (
-          <img src={cover} alt="" onError={(e) => { e.currentTarget.style.display = 'none'; }} style={{
-            width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center 45%',
-            display: 'block', transform: hover ? 'scale(1.04)' : 'scale(1)',
-            transition: 'transform var(--dur-slow) var(--ease-out)',
-          }} />
+          <img src={cover} alt=""
+            onError={(e) => { e.currentTarget.style.opacity = '0'; }} onLoad={(e) => { e.currentTarget.style.opacity = '1'; }}
+            style={{
+              width: '100%', height: '100%', objectFit: 'cover', objectPosition: coverPos || 'center 45%',
+              display: 'block', transform: hover ? 'scale(1.04)' : 'scale(1)',
+              transition: 'transform var(--dur-slow) var(--ease-out)',
+            }} />
         )}
         <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(20,15,10,.55) 0%, rgba(20,15,10,.08) 45%, rgba(20,15,10,.12) 100%)' }} />
 
