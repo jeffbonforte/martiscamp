@@ -41,13 +41,14 @@ export function EditProfileDialog({ target, weekendDays, onClose, onSaved, onRel
     setUploading(true);
     const r = await uploadPhoto(isFam ? 'cover' : 'member', file);
     setUploading(false);
-    const url = r.ok ? r.url : URL.createObjectURL(file); // mock/offline: local preview
+    const preview = URL.createObjectURL(file);    // exact local image, shown instantly
+    const value = r.ok ? r.ref : preview;         // persist the private storage ref (offline: blob)
     if (isFam) {
       // New family photo: start slightly above center so heads aren't cropped,
       // then the host fine-tunes with the positioner.
-      setForm((f) => ({ ...f, cover: url, coverPos: '50% 38%' }));
+      setForm((f) => ({ ...f, cover: value, coverPos: '50% 38%', coverPreview: preview }));
     } else {
-      set('photo', url);
+      setForm((f) => ({ ...f, photo: value, photoPreview: preview }));
     }
   };
 
@@ -59,6 +60,10 @@ export function EditProfileDialog({ target, weekendDays, onClose, onSaved, onRel
       await persistMemberEdit(originalName, { name: form.name, role: form.role, phone: form.phone, email: form.email, interests: form.interests, days: form.days, photo: form.photo });
     }
     Object.assign(obj, form); // optimistic local update
+    // A fresh upload is stored as a "storage:" ref; show the local preview until
+    // the next load re-signs it, so the image doesn't flash broken.
+    if (isFam && form.coverPreview) obj.cover = form.coverPreview;
+    if (!isFam && form.photoPreview) obj.photo = form.photoPreview;
     if (isFam) obj.presence = { ...obj.presence };
     setBusy(false);
     onSaved && onSaved();
@@ -83,7 +88,7 @@ export function EditProfileDialog({ target, weekendDays, onClose, onSaved, onRel
               <Select label="Scenic background" options={COVER_OPTIONS.map((c) => ({ value: c, label: c.split('/').pop().replace(/\.[a-z]+$/, '').replace(/-/g, ' ') }))} value={form.cover} onChange={(e) => set('cover', e.target.value)} />
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-              <CoverPositioner src={coverUrl(form.cover)} value={form.coverPos} onChange={(v) => set('coverPos', v)} />
+              <CoverPositioner src={form.coverPreview || coverUrl(form.cover)} value={form.coverPos} onChange={(v) => set('coverPos', v)} />
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
                 <label style={uploadBtnStyle}>
                   <i data-lucide="upload" style={{ width: 14, height: 14 }} /> {uploading ? 'Uploading…' : 'Upload a cover'}
@@ -104,7 +109,7 @@ export function EditProfileDialog({ target, weekendDays, onClose, onSaved, onRel
         ) : (
           <>
             <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-              <Avatar name={form.name} src={form.photo} tone={form.tone} size="lg" />
+              <Avatar name={form.name} src={form.photoPreview || form.photo} tone={form.tone} size="lg" />
               <label style={uploadBtnStyle}>
                 <i data-lucide="upload" style={{ width: 14, height: 14 }} /> {uploading ? 'Uploading…' : 'Change photo'}
                 <input type="file" accept="image/*" onChange={onFile} style={{ display: 'none' }} />

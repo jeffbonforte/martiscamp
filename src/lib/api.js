@@ -151,6 +151,21 @@ export async function loadAppData() {
     };
   });
 
+  // Resolve private storage refs (family covers + member photos) to short-lived
+  // signed URLs for display. Public/bundled values pass through unchanged.
+  const photoRefs = [];
+  for (const f of mappedFamilies) {
+    if (parseStorageRef(f.cover)) photoRefs.push(f.cover);
+    for (const m of f.members) if (parseStorageRef(m.photo)) photoRefs.push(m.photo);
+  }
+  if (photoRefs.length) {
+    const signed = await signRefs(photoRefs);
+    for (const f of mappedFamilies) {
+      if (f.cover in signed) f.cover = signed[f.cover];
+      for (const m of f.members) if (m.photo in signed) m.photo = signed[m.photo];
+    }
+  }
+
   // RSVPs grouped by event
   const rsvpByEvent = {};
   for (const r of rsvps) (rsvpByEvent[r.event_id] ||= []).push(r);
@@ -361,7 +376,9 @@ export async function persistFamilyEdit(slug, fields) {
   if (!isSupabaseConfigured) return { ok: false, offline: true };
   const patch = {};
   ['name', 'address', 'hometown'].forEach((k) => { if (fields[k] !== undefined) patch[k] = fields[k]; });
-  if (fields.cover !== undefined) patch.cover_photo_url = fields.cover;
+  // Skip a resolved signed URL (unchanged cover) — only persist a real new
+  // value (scenery name or "storage:" ref), never an expiring display URL.
+  if (fields.cover !== undefined && !isSignedStorageUrl(fields.cover)) patch.cover_photo_url = fields.cover;
   if (fields.coverPos !== undefined) patch.cover_photo_pos = fields.coverPos;
   if (fields.interests !== undefined) patch.interests = fields.interests;
   const { error } = await supabase.from('families').update(patch).eq('slug', slug);
@@ -375,7 +392,7 @@ export async function persistMemberEdit(originalName, fields) {
   const patch = {};
   ['name', 'role', 'phone', 'email'].forEach((k) => { if (fields[k] !== undefined) patch[k] = fields[k]; });
   if (fields.interests !== undefined) patch.interests = fields.interests;
-  if (fields.photo !== undefined) patch.photo_url = fields.photo;
+  if (fields.photo !== undefined && !isSignedStorageUrl(fields.photo)) patch.photo_url = fields.photo;
   const { error } = await supabase.from('members').update(patch).eq('id', m.id);
   if (error) return { ok: false, error: error.message };
   if (Array.isArray(fields.days)) {
@@ -477,6 +494,36 @@ export async function deleteCommunityEvent(id) {
 // --- Photo upload to Storage ---------------------------------------------
 
 const BUCKET = { member: 'member-photos', cover: 'family-covers', event: 'event-photos' };
+const PHOTO_BUCKETS = new Set(Object.values(BUCKET));
+const SIGN_TTL = 7200; // 2h — loadAll re-signs on every app load, so mid-session expiry just needs a refresh
+
+// Personal photos live in PRIVATE storage buckets and are referenced in the DB
+// as "storage:<bucket>/<path>" so they can only be viewed via a short-lived
+// signed URL (signed-in members only). Bundled scenery names ("lodge.jpg"),
+// /assets paths, and plain http URLs are public and pass through untouched.
+function parseStorageRef(ref) {
+  if (typeof ref !== 'string' || !ref.startsWith('storage:')) return null;
+  const rest = ref.slice('storage:'.length);
+  const i = rest.indexOf('/');
+  if (i < 0) return null;
+  const bucket = rest.slice(0, i);
+  return PHOTO_BUCKETS.has(bucket) ? { bucket, path: rest.slice(i + 1) } : null;
+}
+
+/** A resolved display URL is a signed storage URL — never persist it back. */
+const isSignedStorageUrl = (v) => typeof v === 'string' && v.includes('/storage/v1/object/sign/');
+
+/** Resolve a batch of unique refs to signed URLs (unresolvable → null). */
+async function signRefs(refs) {
+  const out = {};
+  await Promise.all([...new Set(refs)].map(async (ref) => {
+    const p = parseStorageRef(ref);
+    if (!p) { out[ref] = ref; return; } // public/bundled — pass through
+    const { data, error } = await supabase.storage.from(p.bucket).createSignedUrl(p.path, SIGN_TTL);
+    out[ref] = error ? null : data.signedUrl;
+  }));
+  return out;
+}
 
 export async function uploadPhoto(kind, file) {
   if (!isSupabaseConfigured) return { ok: false, offline: true };
@@ -486,6 +533,8 @@ export async function uploadPhoto(kind, file) {
   const path = `${Date.now()}-${shortId()}.${ext}`;
   const { error } = await supabase.storage.from(bucket).upload(path, file, { upsert: false, contentType: file.type || undefined });
   if (error) return { ok: false, error: error.message };
-  const { data } = supabase.storage.from(bucket).getPublicUrl(path);
-  return { ok: true, url: data.publicUrl };
+  // Persist the stable ref; return a signed URL for immediate preview.
+  const ref = `storage:${bucket}/${path}`;
+  const { data } = await supabase.storage.from(bucket).createSignedUrl(path, SIGN_TTL);
+  return { ok: true, ref, url: data?.signedUrl || null };
 }
