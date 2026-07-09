@@ -385,6 +385,23 @@ export async function persistFamilyEdit(slug, fields) {
   return error ? { ok: false, error: error.message } : { ok: true };
 }
 
+// Add a new member to a family (self-serve for the family account-holder, or an
+// admin). If they have an email they're auto-approved onto the sign-in allowlist.
+export async function createMember(familySlug, { name, role, email, phone }) {
+  if (!isSupabaseConfigured) return { ok: false, offline: true };
+  if (!name || !name.trim()) return { ok: false, error: 'A name is required.' };
+  const { data: f } = await supabase.from('families').select('id').eq('slug', familySlug).maybeSingle();
+  if (!f) return { ok: false, error: 'Family not found.' };
+  const { error } = await supabase.from('members').insert({
+    family_id: f.id, name: name.trim(), role: (role || '').trim() || null,
+    email: (email || '').trim().toLowerCase() || null, phone: (phone || '').trim() || null,
+    tone: 'var(--pine-600)',
+  });
+  if (error) return { ok: false, error: error.message };
+  if (email && email.trim()) await ensureInvite(email, f.id, await currentMemberId());
+  return { ok: true };
+}
+
 export async function persistMemberEdit(originalName, fields) {
   if (!isSupabaseConfigured) return { ok: false, offline: true };
   const { data: m } = await supabase.from('members').select('id, family_id').eq('name', originalName).maybeSingle();

@@ -20,6 +20,7 @@ import { PlanVisit } from './screens/PlanVisit.jsx';
 import { AdminScreen } from './screens/Admin.jsx';
 import { HostDialog } from './screens/dialogs/HostDialog.jsx';
 import { EditProfileDialog } from './screens/dialogs/EditProfileDialog.jsx';
+import { AddMemberDialog } from './screens/dialogs/AddMemberDialog.jsx';
 import { AddToCalendarDialog } from './screens/dialogs/AddToCalendarDialog.jsx';
 
 const seasonOf = (d) => { const m = d.getMonth(); return (m <= 1 || m === 11) ? 'winter' : m <= 4 ? 'spring' : m <= 7 ? 'summer' : 'fall'; };
@@ -38,6 +39,7 @@ export function App({ onSignOut }) {
   const [feedOpen, setFeedOpen] = React.useState(false);
   const [calEvent, setCalEvent] = React.useState(null);
   const [editTarget, setEditTarget] = React.useState(null);
+  const [addMemberFor, setAddMemberFor] = React.useState(null);
 
   React.useEffect(() => {
     let alive = true;
@@ -118,7 +120,8 @@ export function App({ onSignOut }) {
   let body;
   if (route?.type === 'family') {
     body = <FamilyProfileScreen family={route.item} data={data} favorites={favorites}
-      onToggleFav={toggleFav} canEdit={owned(route.item)} onEdit={() => setEditTarget({ type: 'family', family: route.item })}
+      onToggleFav={toggleFav} canEdit={owned(route.item) || !!me.isAdmin} onEdit={() => setEditTarget({ type: 'family', family: route.item })}
+      onAddMember={() => setAddMemberFor(route.item)}
       onBack={() => setRoute(null)} onOpenEvent={openEvent} onOpenMember={(m) => openMember(route.item, m)} />;
   } else if (route?.type === 'member') {
     body = <MemberProfileScreen family={route.item} member={route.member} data={data} favorites={favorites} onToggleFav={toggleFav}
@@ -222,6 +225,7 @@ export function App({ onSignOut }) {
 
       <HostDialog open={planOpen} initialType={postType} onClose={() => setPlanOpen(false)} onCreated={reload} />
       <EditProfileDialog target={editTarget} weekendDays={data.weekendDays} onClose={() => setEditTarget(null)} onSaved={bump} onReload={reload} />
+      <AddMemberDialog family={addMemberFor} open={!!addMemberFor} onClose={() => setAddMemberFor(null)} onCreated={reload} />
       <AddToCalendarDialog event={calEvent} onClose={() => setCalEvent(null)} />
     </div>
   );

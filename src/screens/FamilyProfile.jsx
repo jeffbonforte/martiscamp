@@ -5,7 +5,7 @@ import { coverUrl } from '../lib/images.js';
 import { chipStyle } from './shared.jsx';
 import { ScheduleView } from './ScheduleView.jsx';
 
-export function FamilyProfileScreen({ family, data, favorites, onToggleFav, canEdit, onEdit, onBack, onOpenEvent, onOpenMember }) {
+export function FamilyProfileScreen({ family, data, favorites, onToggleFav, canEdit, onEdit, onAddMember, onBack, onOpenEvent, onOpenMember }) {
   const [who, setWho] = React.useState('family'); // 'family' or member name
   const fav = favorites.has(family.id);
   const attendees = who === 'family' ? family.members : family.members.filter((m) => m.name === who);
@@ -49,7 +49,12 @@ export function FamilyProfileScreen({ family, data, favorites, onToggleFav, canE
       </div>
 
       {/* Members */}
-      <div style={{ font: 'var(--role-h2)', color: 'var(--text-strong)', marginBottom: 'var(--space-4)' }}>Family members</div>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', marginBottom: 'var(--space-4)' }}>
+        <div style={{ font: 'var(--role-h2)', color: 'var(--text-strong)' }}>Family members</div>
+        {canEdit && onAddMember && (
+          <Button variant="secondary" size="sm" onClick={onAddMember} iconLeft={<i data-lucide="user-plus" style={{ width: 15, height: 15 }} />}>Add family member</Button>
+        )}
+      </div>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 'var(--space-4)', marginBottom: 'var(--space-10)' }}>
         {family.members.map((m) => (
           <Card key={m.name} interactive onClick={() => onOpenMember(m)} padding="var(--space-4)"
