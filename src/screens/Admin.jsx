@@ -2,6 +2,7 @@ import React from 'react';
 import { Card, Button, Input, Select, SegmentedControl, AmenityTag, Badge, EmptyState, AMENITIES } from '../components/index.js';
 import { useLucide } from '../lib/useLucide.js';
 import { PageHead } from './shared.jsx';
+import { buildWeekendDays, MONTHS_SHORT } from '../lib/calendar.js';
 import {
   listInvites, revokeInvite, createMember,
   createFamily, archiveFamily,
@@ -10,11 +11,14 @@ import {
 } from '../lib/api.js';
 
 const AMENITY_OPTS = Object.entries(AMENITIES).map(([value, v]) => ({ value, label: v.label }));
-const DAY_OPTS = [
-  { value: 'thu', label: 'Thu 10' }, { value: 'fri', label: 'Fri 11' }, { value: 'sat', label: 'Sat 12' },
-  { value: 'sun', label: 'Sun 13' }, { value: 'mon', label: 'Mon 14' }, { value: 'tue', label: 'Tue 15' }, { value: 'wed', label: 'Wed 16' },
-];
-const DAY_NUM = { thu: 10, fri: 11, sat: 12, sun: 13, mon: 14, tue: 15, wed: 16 };
+// Real upcoming week (rolling from today) — not a frozen July prototype week.
+const WINDOW = buildWeekendDays();
+const DAY_OPTS = WINDOW.map((d) => ({ value: d.key, label: `${d.label} ${d.sub}` }));
+const DAY_NUM = Object.fromEntries(WINDOW.map((d) => [d.key, d.sub]));
+const communityDayLabel = (dayKey, dayOfMonth) => {
+  const wd = WINDOW.find((d) => d.key === dayKey);
+  return wd ? `${MONTHS_SHORT[wd.date.getMonth()]} ${wd.sub}` : `#${dayOfMonth}`;
+};
 
 const Row = ({ children }) => (
   <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: 'var(--space-3) 0', borderBottom: '1px solid var(--divider)' }}>{children}</div>
@@ -102,7 +106,7 @@ function InvitesTab({ data }) {
 /* ---------- Community calendar ---------- */
 function CommunityTab() {
   const [rows, setRows] = React.useState(null);
-  const [form, setForm] = React.useState({ title: '', place: '', amenity: 'social', dayKey: 'fri' });
+  const [form, setForm] = React.useState({ title: '', place: '', amenity: 'social', dayKey: WINDOW[0].key });
   const [busy, setBusy] = React.useState(false);
   const load = React.useCallback(() => { listCommunity().then(setRows); }, []);
   React.useEffect(() => { load(); }, [load]);
@@ -132,7 +136,7 @@ function CommunityTab() {
               {r.amenity && <AmenityTag amenity={r.amenity} size="sm" />}
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ font: 'var(--fw-semibold) var(--text-sm)/1.15 var(--font-sans)', color: 'var(--text-strong)' }}>{r.title}</div>
-                <div style={{ font: 'var(--role-small)', color: 'var(--text-muted)' }}>{r.place} · Jul {r.day_of_month}</div>
+                <div style={{ font: 'var(--role-small)', color: 'var(--text-muted)' }}>{r.place} · {communityDayLabel(r.day_key, r.day_of_month)}</div>
               </div>
               <Button variant="ghost" size="sm" onClick={() => del(r.id)} iconLeft={<i data-lucide="trash-2" style={{ width: 14, height: 14 }} />}>Delete</Button>
             </Row>
