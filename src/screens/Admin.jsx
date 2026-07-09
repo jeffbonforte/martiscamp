@@ -6,6 +6,7 @@ import {
   listInvites, createInvite, revokeInvite,
   createFamily, archiveFamily,
   listCommunity, createCommunityEvent, deleteCommunityEvent,
+  listAddRequests, resolveAddRequest,
 } from '../lib/api.js';
 
 const AMENITY_OPTS = Object.entries(AMENITIES).map(([value, v]) => ({ value, label: v.label }));
@@ -120,6 +121,52 @@ function CommunityTab() {
   );
 }
 
+/* ---------- Requests ---------- */
+function RequestsTab() {
+  const [rows, setRows] = React.useState(null);
+  const [showResolved, setShowResolved] = React.useState(false);
+  const load = React.useCallback(() => { listAddRequests().then(setRows); }, []);
+  React.useEffect(() => { load(); }, [load]);
+  const resolve = async (id, status) => { await resolveAddRequest(id, status); load(); };
+  useLucide();
+
+  const all = rows || [];
+  const open = all.filter((r) => r.status === 'open');
+  const shown = showResolved ? all : open;
+
+  return (
+    <Card>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 'var(--space-4)' }}>
+        <div style={{ font: 'var(--role-small)', color: 'var(--text-muted)' }}>{open.length} open request{open.length === 1 ? '' : 's'}</div>
+        <Button variant="ghost" size="sm" onClick={() => setShowResolved((s) => !s)}>{showResolved ? 'Show open only' : 'Show all'}</Button>
+      </div>
+      {rows == null ? <div style={{ font: 'var(--role-small)', color: 'var(--text-faint)' }}>Loading…</div>
+        : shown.length === 0 ? <EmptyState glyph="user-plus" title="No requests" description="Members can request additions from the directory." />
+          : shown.map((r) => (
+            <Row key={r.id}>
+              <Badge tone={r.kind === 'family' ? 'brand' : 'neutral'}>{r.kind}</Badge>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ font: 'var(--fw-semibold) var(--text-sm)/1.2 var(--font-sans)', color: 'var(--text-strong)' }}>{r.name}</div>
+                <div style={{ font: 'var(--role-small)', color: 'var(--text-muted)' }}>
+                  {r.email ? <span style={{ fontFamily: 'var(--font-mono)' }}>{r.email}</span> : 'no email'}
+                  {r.requestedByName ? ` · by ${r.requestedByName}` : ''}
+                </div>
+                {r.note && <div style={{ font: 'var(--role-small)', color: 'var(--text-body)', marginTop: 2 }}>“{r.note}”</div>}
+              </div>
+              {r.status === 'open' ? (
+                <>
+                  <Button variant="secondary" size="sm" onClick={() => resolve(r.id, 'done')} iconLeft={<i data-lucide="check" style={{ width: 14, height: 14 }} />}>Mark added</Button>
+                  <Button variant="ghost" size="sm" onClick={() => resolve(r.id, 'dismissed')}>Dismiss</Button>
+                </>
+              ) : (
+                <Badge tone={r.status === 'done' ? 'success' : 'neutral'}>{r.status === 'done' ? 'added' : 'dismissed'}</Badge>
+              )}
+            </Row>
+          ))}
+    </Card>
+  );
+}
+
 export function AdminScreen({ data, onReload, onEditFamily }) {
   const [tab, setTab] = React.useState('families');
   useLucide();
@@ -131,11 +178,13 @@ export function AdminScreen({ data, onReload, onEditFamily }) {
           options={[
             { value: 'families', label: 'Families', icon: 'users' },
             { value: 'invites', label: 'Invites', icon: 'mail' },
+            { value: 'requests', label: 'Requests', icon: 'user-plus' },
             { value: 'community', label: 'Community', icon: 'calendar' },
           ]} />
       </div>
       {tab === 'families' && <FamiliesTab data={data} onReload={onReload} onEditFamily={onEditFamily} />}
       {tab === 'invites' && <InvitesTab data={data} />}
+      {tab === 'requests' && <RequestsTab />}
       {tab === 'community' && <CommunityTab />}
     </div>
   );

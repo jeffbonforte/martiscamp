@@ -1,8 +1,9 @@
 import React from 'react';
-import { FamilyCard, SegmentedControl, Input, EmptyState } from '../components/index.js';
+import { FamilyCard, SegmentedControl, Input, EmptyState, Button } from '../components/index.js';
 import { useLucide } from '../lib/useLucide.js';
 import { coverUrl } from '../lib/images.js';
 import { PageHead } from './shared.jsx';
+import { RequestAddDialog } from './dialogs/RequestAddDialog.jsx';
 
 /** A starred family shown in the Favorites strip. */
 function FavoriteTile({ family, onOpen }) {
@@ -33,6 +34,7 @@ function FavoriteTile({ family, onOpen }) {
 export function DirectoryScreen({ data, favorites, onToggleFav, onOpen }) {
   const [q, setQ] = React.useState('');
   const [tab, setTab] = React.useState('all');
+  const [reqOpen, setReqOpen] = React.useState(false);
   useLucide();
 
   const favList = data.families.filter((f) => favorites.has(f.id));
@@ -75,6 +77,20 @@ export function DirectoryScreen({ data, favorites, onToggleFav, onOpen }) {
                 favorite={favorites.has(f.id)} onToggleFavorite={() => onToggleFav(f.id)} />
             ))}
           </div>}
+
+      {/* Request to add someone */}
+      <div style={{ marginTop: 'var(--space-8)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap', padding: 'var(--space-5) var(--space-6)', borderRadius: 'var(--radius-lg)', border: '1px dashed var(--border-strong)', background: 'var(--surface-sunk)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <i data-lucide="user-plus" style={{ width: 18, height: 18, color: 'var(--brand)' }} />
+          <div>
+            <div style={{ font: 'var(--fw-semibold) var(--text-sm)/1.2 var(--font-sans)', color: 'var(--text-strong)' }}>Someone missing?</div>
+            <div style={{ font: 'var(--role-small)', color: 'var(--text-muted)' }}>Request to add a neighbor or a whole family — an admin will send them an invite.</div>
+          </div>
+        </div>
+        <Button variant="secondary" onClick={() => setReqOpen(true)} iconLeft={<i data-lucide="user-plus" style={{ width: 15, height: 15 }} />}>Request to add someone</Button>
+      </div>
+
+      <RequestAddDialog open={reqOpen} onClose={() => setReqOpen(false)} />
     </div>
   );
 }

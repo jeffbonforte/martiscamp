@@ -461,6 +461,38 @@ export async function revokeInvite(id) {
   return error ? { ok: false, error: error.message } : { ok: true };
 }
 
+// --- "Request to add" queue -----------------------------------------------
+
+export async function submitAddRequest({ kind, name, email, note }) {
+  if (!isSupabaseConfigured) return { ok: false, offline: true };
+  if (!name || !name.trim()) return { ok: false, error: 'A name is required.' };
+  const mid = await currentMemberId();
+  const { error } = await supabase.from('add_requests').insert({
+    kind: kind === 'family' ? 'family' : 'person',
+    name: name.trim(), email: (email || '').trim() || null, note: (note || '').trim() || null,
+    requested_by: mid,
+  });
+  return error ? { ok: false, error: error.message } : { ok: true };
+}
+
+export async function listAddRequests() {
+  if (!isSupabaseConfigured) return [];
+  const { data } = await supabase.from('add_requests')
+    .select('id, kind, name, email, note, status, created_at, requested_by')
+    .order('created_at', { ascending: false });
+  const rows = data || [];
+  const mids = [...new Set(rows.map((r) => r.requested_by).filter(Boolean))];
+  let names = {};
+  if (mids.length) { const { data: ms } = await supabase.from('members').select('id, name').in('id', mids); names = Object.fromEntries((ms || []).map((m) => [m.id, m.name])); }
+  return rows.map((r) => ({ ...r, requestedByName: r.requested_by ? names[r.requested_by] : null }));
+}
+
+export async function resolveAddRequest(id, status) {
+  if (!isSupabaseConfigured) return { ok: false };
+  const { error } = await supabase.from('add_requests').update({ status }).eq('id', id);
+  return error ? { ok: false, error: error.message } : { ok: true };
+}
+
 export async function createFamily(name) {
   if (!isSupabaseConfigured) return { ok: false, offline: true };
   const { error } = await supabase.from('families').insert({ slug: `${slugify(name)}-${shortId()}`, name, tone: 'var(--pine-600)' });
