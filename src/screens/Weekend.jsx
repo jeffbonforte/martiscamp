@@ -25,7 +25,7 @@ export function WeekendScreen({ data, season, rsvpMap = {}, onPlan, onOpenEvent,
           <div style={{ position: 'absolute', left: 0, right: 0, bottom: 0, padding: 'var(--space-6) var(--space-8)' }}>
             <div style={{ font: 'var(--role-eyebrow)', letterSpacing: 'var(--tracking-wider)', textTransform: 'uppercase', color: 'rgba(255,255,255,.85)', marginBottom: 6 }}>Right now at the Camp · {todayLabel}</div>
             <div className="hero-title" style={{ font: 'var(--fw-regular) var(--text-5xl)/1 var(--font-display)', color: '#fff', letterSpacing: 'var(--tracking-tight)' }}>Who's here now</div>
-            <div style={{ font: 'var(--role-body)', color: 'rgba(255,255,255,.9)', marginTop: 8 }}>{here.length} families are up at Martis Camp</div>
+            <div style={{ font: 'var(--role-body)', color: 'rgba(255,255,255,.9)', marginTop: 8 }}>{here.length === 0 ? 'No families are up at Martis Camp right now' : here.length === 1 ? '1 family is up at Martis Camp' : `${here.length} families are up at Martis Camp`}</div>
           </div>
           <div style={{ position: 'absolute', top: 'var(--space-5)', right: 'var(--space-6)' }}>
             <Button iconLeft={<i data-lucide="plus" style={{ width: 16, height: 16 }} />} onClick={onPlan}>Host a get-together</Button>
