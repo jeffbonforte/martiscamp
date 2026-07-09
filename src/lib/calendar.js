@@ -5,6 +5,30 @@
 export const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 export const MONTHS_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 export const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+export const WEEKDAY_KEYS = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
+
+/**
+ * The app's rolling 7-day look-ahead, generated from the current date (not a
+ * frozen prototype week). Each entry carries a real Date so every screen can
+ * derive labels/positions without hardcoding a year or month. `fallbackWx` is
+ * an optional per-index array of offline weather blocks; live weather overlays
+ * temps on top (see lib/weather.js).
+ */
+export function buildWeekendDays(fallbackWx = [], today = new Date()) {
+  const base = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+  return Array.from({ length: 7 }, (_, i) => {
+    const date = new Date(base);
+    date.setDate(base.getDate() + i);
+    return {
+      key: WEEKDAY_KEYS[date.getDay()],
+      label: WEEKDAYS[date.getDay()],
+      sub: date.getDate(),
+      date,
+      iso: dateKey(date),
+      wx: (fallbackWx[i] && fallbackWx[i].wx) || { hi: 70, lo: 40, icon: 'sun', cond: 'Clear' },
+    };
+  });
+}
 
 export function seasonOf(date) {
   const m = date.getMonth();
@@ -62,9 +86,11 @@ export function nextMonths(from, count) {
 
 // ---- Get-together date parsing + calendar export -------------------------
 
-// The mock `when` strings look like "Sat, Jul 12 · 8:30 AM". Parse best-effort
-// into a real Date (year defaults to `defaultYear`). Returns null if unparseable.
-export function parseWhen(when, defaultYear = 2025) {
+// The `when` strings look like "Sat, Jul 12 · 8:30 AM" (no year). Parse best-
+// effort into a real Date. Without an explicit `defaultYear`, use the current
+// year and roll to next year if the month/day has already passed, so add-to-
+// calendar always lands on the upcoming occurrence. Returns null if unparseable.
+export function parseWhen(when, defaultYear) {
   if (!when) return null;
   const m = when.match(/([A-Z][a-z]{2})\s+(\d{1,2}).*?(\d{1,2}):(\d{2})\s*(AM|PM)?/i);
   if (!m) return null;
@@ -77,7 +103,13 @@ export function parseWhen(when, defaultYear = 2025) {
     if (up === 'PM' && hour < 12) hour += 12;
     if (up === 'AM' && hour === 12) hour = 0;
   }
-  return new Date(defaultYear, monIdx, parseInt(day, 10), hour, parseInt(mm, 10));
+  const now = new Date();
+  const year = defaultYear ?? now.getFullYear();
+  let dt = new Date(year, monIdx, parseInt(day, 10), hour, parseInt(mm, 10));
+  if (defaultYear == null && dt.getTime() < now.getTime() - 24 * 60 * 60 * 1000) {
+    dt = new Date(year + 1, monIdx, parseInt(day, 10), hour, parseInt(mm, 10)); // already passed → next year
+  }
+  return dt;
 }
 
 function toICSStamp(date) {

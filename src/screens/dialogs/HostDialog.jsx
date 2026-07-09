@@ -2,9 +2,11 @@ import React from 'react';
 import { Dialog, Button, Input, Select, Textarea, SegmentedControl, AMENITIES } from '../../components/index.js';
 import { useLucide } from '../../lib/useLucide.js';
 import { createGathering } from '../../lib/api.js';
+import { buildWeekendDays, MONTHS_SHORT } from '../../lib/calendar.js';
 
 const VENUES = ['Golf clubhouse', 'Camp Lodge Bistro', 'The Family Barn', 'The Beach Club', 'Martis Perk', 'Tennis Pavilion', 'Lookout Lodge', 'Pickleball courts'];
-const DAYS = ['Thu, Jul 10', 'Fri, Jul 11', 'Sat, Jul 12', 'Sun, Jul 13'];
+// Real upcoming days (rolling window from today), e.g. "Sat, Jul 11".
+const DAYS = buildWeekendDays().map((d) => `${d.label}, ${MONTHS_SHORT[d.date.getMonth()]} ${d.sub}`);
 const AMENITY_OPTS = Object.entries(AMENITIES).map(([value, v]) => ({ value, label: v.label }));
 
 /**

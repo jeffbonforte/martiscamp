@@ -9,6 +9,8 @@ export function WeekendScreen({ data, season, rsvpMap = {}, onPlan, onOpenEvent,
   const [days, setDays] = React.useState(data.families[0].presence.days);
   const toggle = (k) => setDays((d) => (d.includes(k) ? d.filter((x) => x !== k) : [...d, k]));
   const here = data.families.filter((f) => f.presence.here);
+  const today = data.weekendDays[0]?.date || new Date();
+  const todayLabel = today.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
   useLucide();
 
   return (
@@ -20,7 +22,7 @@ export function WeekendScreen({ data, season, rsvpMap = {}, onPlan, onOpenEvent,
         <div style={{ position: 'absolute', inset: 0, height: 280, background: 'linear-gradient(to top, rgba(20,15,10,.72) 0%, rgba(20,15,10,.18) 42%, rgba(20,15,10,0) 70%)' }} />
         <div style={{ position: 'relative', height: 280 }}>
           <div style={{ position: 'absolute', left: 0, right: 0, bottom: 0, padding: 'var(--space-6) var(--space-8)' }}>
-            <div style={{ font: 'var(--role-eyebrow)', letterSpacing: 'var(--tracking-wider)', textTransform: 'uppercase', color: 'rgba(255,255,255,.85)', marginBottom: 6 }}>Right now at the Camp · Fri, Jul 11</div>
+            <div style={{ font: 'var(--role-eyebrow)', letterSpacing: 'var(--tracking-wider)', textTransform: 'uppercase', color: 'rgba(255,255,255,.85)', marginBottom: 6 }}>Right now at the Camp · {todayLabel}</div>
             <div className="hero-title" style={{ font: 'var(--fw-regular) var(--text-5xl)/1 var(--font-display)', color: '#fff', letterSpacing: 'var(--tracking-tight)' }}>Who's here now</div>
             <div style={{ font: 'var(--role-body)', color: 'rgba(255,255,255,.9)', marginTop: 8 }}>{here.length} families are up at Martis Camp</div>
           </div>

@@ -5,7 +5,7 @@ import { PageHead, chipStyle } from './shared.jsx';
 import { MONTHS, WEEKDAYS, monthMatrix, nextMonths, dateKey } from '../lib/calendar.js';
 import { loadVisitPlan, saveVisitPlan, isSupabaseConfigured } from '../lib/api.js';
 
-const APP_TODAY = new Date(2025, 6, 11);
+const APP_TODAY = new Date();
 const startOfToday = new Date(APP_TODAY.getFullYear(), APP_TODAY.getMonth(), APP_TODAY.getDate());
 
 function weekOf(date) {
@@ -26,14 +26,13 @@ export function PlanVisit({ data, onBack }) {
     const map = {};
     // Only seed days from today onward — a past day would render disabled yet
     // still count toward the summary and couldn't be cleared.
-    const julKey = (k) => {
+    const dayToKey = (k) => {
       const wd = data.weekendDays.find((d) => d.key === k);
       if (!wd) return null;
-      const d = new Date(2025, 6, wd.sub);
-      return d < startOfToday ? null : dateKey(d);
+      return wd.date < startOfToday ? null : dateKey(wd.date);
     };
-    map.family = new Set((myFam.presence.days || []).map(julKey).filter(Boolean));
-    myFam.members.forEach((m) => { map[m.name] = new Set((m.days || []).map(julKey).filter(Boolean)); });
+    map.family = new Set((myFam.presence.days || []).map(dayToKey).filter(Boolean));
+    myFam.members.forEach((m) => { map[m.name] = new Set((m.days || []).map(dayToKey).filter(Boolean)); });
     return map;
   }, [data, myFam]);
 

@@ -6,20 +6,27 @@
 // Image paths point at /assets/images/... (served from public/). Where a photo
 // file is absent the UI falls back to serif initials / tinted covers by design.
 
+import { buildWeekendDays } from '../lib/calendar.js';
+
+// Offline weather fallback (per day-of-window index). Live weather overlays real
+// temps on top of these; they only show when the network is unavailable.
+const WEEKEND_WX = [
+  { wx: { hi: 74, lo: 41, icon: 'sun', cond: 'Sunny' } },
+  { wx: { hi: 71, lo: 39, icon: 'cloud-sun', cond: 'Partly cloudy' } },
+  { wx: { hi: 68, lo: 38, icon: 'cloud', cond: 'Overcast' } },
+  { wx: { hi: 72, lo: 40, icon: 'sun', cond: 'Sunny' } },
+  { wx: { hi: 75, lo: 42, icon: 'sun', cond: 'Sunny' } },
+  { wx: { hi: 77, lo: 43, icon: 'sun', cond: 'Clear' } },
+  { wx: { hi: 73, lo: 41, icon: 'cloud-sun', cond: 'Partly cloudy' } },
+];
+
 export const DATA = {
   me: { name: 'Jeff Bonforte', familyId: 'bonforte' },
 
-  // Weather + snow are placeholders used as a graceful fallback when the live
-  // WeatherUnlocked feed is unavailable. `weekendDays` is a rolling look-ahead.
-  weekendDays: [
-    { key: 'thu', label: 'Thu', sub: 10, wx: { hi: 74, lo: 41, icon: 'sun', cond: 'Sunny' } },
-    { key: 'fri', label: 'Fri', sub: 11, wx: { hi: 71, lo: 39, icon: 'cloud-sun', cond: 'Partly cloudy' } },
-    { key: 'sat', label: 'Sat', sub: 12, wx: { hi: 68, lo: 38, icon: 'cloud', cond: 'Overcast' } },
-    { key: 'sun', label: 'Sun', sub: 13, wx: { hi: 72, lo: 40, icon: 'sun', cond: 'Sunny' } },
-    { key: 'mon', label: 'Mon', sub: 14, wx: { hi: 75, lo: 42, icon: 'sun', cond: 'Sunny' } },
-    { key: 'tue', label: 'Tue', sub: 15, wx: { hi: 77, lo: 43, icon: 'sun', cond: 'Clear' } },
-    { key: 'wed', label: 'Wed', sub: 16, wx: { hi: 73, lo: 41, icon: 'cloud-sun', cond: 'Partly cloudy' } },
-  ],
+  // A rolling 7-day look-ahead generated from today's date (see calendar.js),
+  // so day labels/numbers always track the real calendar. Weather is a graceful
+  // fallback overlaid by the live feed when available.
+  weekendDays: buildWeekendDays(WEEKEND_WX),
 
   snowReport: { newInches: 8, baseInches: 62, seasonTotal: '312"', lifts: '18 / 20 open', trails: '92% open', condition: 'Packed powder' },
 

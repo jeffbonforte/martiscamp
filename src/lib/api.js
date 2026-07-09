@@ -1,5 +1,6 @@
 import { supabase, isSupabaseConfigured } from './supabase.js';
 import { DATA as MOCK } from '../data/mockData.js';
+import { buildWeekendDays } from './calendar.js';
 
 // ---------------------------------------------------------------------------
 // Data-access layer. When Supabase is configured, reads/writes go to the
@@ -11,11 +12,14 @@ import { DATA as MOCK } from '../data/mockData.js';
 
 export { isSupabaseConfigured };
 
-// The demo week (matches mockData + seed): day key <-> July 2025 date.
-const DAY_DATE = { thu: '2025-07-10', fri: '2025-07-11', sat: '2025-07-12', sun: '2025-07-13', mon: '2025-07-14', tue: '2025-07-15', wed: '2025-07-16' };
-const DATE_DAY = Object.fromEntries(Object.entries(DAY_DATE).map(([k, v]) => [v, k]));
-const DAY_ORDER = ['thu', 'fri', 'sat', 'sun', 'mon', 'tue', 'wed'];
-const DAY_LABEL = { thu: 'Thu', fri: 'Fri', sat: 'Sat', sun: 'Sun', mon: 'Mon', tue: 'Tue', wed: 'Wed' };
+// The rolling 7-day window from today: day key <-> real ISO date. Generated
+// from now() (see calendar.js) so presence + attendance writes always land on
+// the current week rather than a frozen prototype week.
+const WINDOW = buildWeekendDays();
+const DAY_DATE = Object.fromEntries(WINDOW.map((d) => [d.key, d.iso]));
+const DATE_DAY = Object.fromEntries(WINDOW.map((d) => [d.iso, d.key]));
+const DAY_ORDER = WINDOW.map((d) => d.key);
+const DAY_LABEL = Object.fromEntries(WINDOW.map((d) => [d.key, d.label]));
 const WEEKDAY_TO_KEY = { Thu: 'thu', Fri: 'fri', Sat: 'sat', Sun: 'sun', Mon: 'mon', Tue: 'tue', Wed: 'wed' };
 
 function presenceFrom(days) {

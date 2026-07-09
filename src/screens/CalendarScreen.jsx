@@ -4,21 +4,23 @@ import { useLucide } from '../lib/useLucide.js';
 import { PageHead, SnowReport } from './shared.jsx';
 import { MONTHS, WEEKDAYS, monthMatrix, sameDay } from '../lib/calendar.js';
 
-// The mock dataset is anchored to the week of July 2025. "Today" for the demo
-// is Fri, Jul 11 2025 (matches the hero). In production these come from now().
-const APP_TODAY = new Date(2025, 6, 11);
-const ANCHOR_MONTH = { year: 2025, month: 6 };
-
 export function CalendarScreen({ data, season, favorites, onOpenEvent, onPlanVisit }) {
   const myFam = data.families.find((f) => f.id === data.me.familyId);
   const [days, setDays] = React.useState(myFam ? myFam.presence.days : []);
-  const [offset, setOffset] = React.useState(0); // months ahead of the anchor month (0..12)
+  const [offset, setOffset] = React.useState(0); // months ahead of the current month (0..12)
   const toggle = (k) => setDays((d) => (d.includes(k) ? d.filter((x) => x !== k) : [...d, k]));
   useLucide();
 
-  // day key ("fri") -> Date, using the mock week's day-of-month.
-  const dayKeyDate = (key) => { const wd = data.weekendDays.find((d) => d.key === key); return wd ? new Date(2025, 6, wd.sub) : null; };
-  const wxForDate = (date) => { const wd = data.weekendDays.find((d) => d.sub === date.getDate() && date.getMonth() === 6); return wd ? wd.wx : null; };
+  // "Today" and the rolling window bounds, from the real calendar.
+  const APP_TODAY = new Date(); APP_TODAY.setHours(0, 0, 0, 0);
+  const ANCHOR_MONTH = { year: APP_TODAY.getFullYear(), month: APP_TODAY.getMonth() };
+  const windowDates = data.weekendDays.map((d) => d.date);
+  const winStart = windowDates[0];
+  const winEnd = windowDates[windowDates.length - 1];
+
+  // day key ("fri") -> the real Date in the rolling window.
+  const dayKeyDate = (key) => { const wd = data.weekendDays.find((d) => d.key === key); return wd ? wd.date : null; };
+  const wxForDate = (date) => { const wd = data.weekendDays.find((d) => sameDay(d.date, date)); return wd ? wd.wx : null; };
 
   // ---- Favorites arrivals ----
   const favFamilies = data.families.filter((f) => favorites.has(f.id));
@@ -38,7 +40,7 @@ export function CalendarScreen({ data, season, favorites, onOpenEvent, onPlanVis
 
   // ---- Near-term agenda (the mock 7-day window) ----
   const agenda = data.weekendDays.map((wd) => {
-    const date = new Date(2025, 6, wd.sub);
+    const date = wd.date;
     const arrivingFamilies = data.families.filter((f) => f.presence.days[0] === wd.key && f.presence.here);
     const evs = data.events.filter((e) => e.dayKey === wd.key);
     const gats = data.gatherings.filter((g) => g.day === wd.key);
@@ -47,7 +49,7 @@ export function CalendarScreen({ data, season, favorites, onOpenEvent, onPlanVis
 
   // ---- Month view chips ----
   const chipsForDate = (date) => {
-    if (date.getMonth() !== 6 || date.getFullYear() !== 2025) return []; // mock data lives in Jul 2025
+    if (date < winStart || date > winEnd) return []; // events live within the rolling window
     // Official community events (badge, non-clickable) …
     const community = data.events
       .filter((e) => e.day === date.getDate() && e.community)
@@ -66,7 +68,7 @@ export function CalendarScreen({ data, season, favorites, onOpenEvent, onPlanVis
 
   return (
     <div>
-      <PageHead eyebrow="July 2025" title="Calendar" sub="Your days at the Camp, favorites' next arrivals, community events, and family get-togethers." />
+      <PageHead eyebrow={`${MONTHS[viewMonth]} ${viewYear}`} title="Calendar" sub="Your days at the Camp, favorites' next arrivals, community events, and family get-togethers." />
 
       {/* My calendar — mark your days */}
       <div style={{ background: 'var(--surface-card)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-sm)', padding: 'var(--space-5) var(--space-6)', marginBottom: 'var(--space-6)' }}>
