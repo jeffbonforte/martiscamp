@@ -9,7 +9,9 @@ export const LOGO_BADGE = '/assets/logos/martis-camp-badge.png';
 /** Resolve a family cover ("lodge.jpg" or "family/bonfortes.jpg") to a URL. */
 export function coverUrl(name) {
   if (!name) return null;
-  if (name.startsWith('/') || name.startsWith('http')) return name;
+  // Absolute/object URLs (signed storage URLs, blob previews, data URIs, /assets)
+  // pass through; only a bare bundled filename gets the images base prefix.
+  if (/^(https?:|blob:|data:|\/)/.test(name)) return name;
   return IMG_BASE + name;
 }
 

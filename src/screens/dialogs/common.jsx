@@ -86,7 +86,7 @@ export function CoverPositioner({ src, value, onChange }) {
         display: 'flex', alignItems: 'center', gap: 6,
         font: 'var(--fw-semibold) var(--text-2xs)/1 var(--font-sans)', color: 'rgba(255,255,255,.92)' }}>
         <i data-lucide="move" style={{ width: 13, height: 13 }} />
-        {src ? 'Drag to reposition — this is your family billboard crop' : 'Upload a photo to reposition it'}
+        {src ? 'Drag to reposition' : 'Upload a photo to reposition it'}
       </div>
     </div>
   );

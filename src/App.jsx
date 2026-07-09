@@ -82,7 +82,20 @@ export function App({ onSignOut }) {
   const setRsvp = (id, v) => { setRsvpMap((m) => ({ ...m, [id]: v })); persistRsvp(id, v); };
   const addToCalendar = (g) => setCalEvent(g);
   const openPost = (type) => { setPostType(type); setPlanOpen(true); };
-  const reload = () => loadAppData().then(setBase); // refresh dataset after a write
+  // Refresh the dataset after a write, and re-point the open profile route at the
+  // freshly-loaded objects (which carry resolved signed photo URLs) — otherwise
+  // the profile keeps rendering the stale pre-reload object and its cover/photo
+  // (a raw storage ref) won't load.
+  const reload = () => loadAppData().then((d) => {
+    setBase(d);
+    setRoute((r) => {
+      if (!r || (r.type !== 'family' && r.type !== 'member')) return r;
+      const f = d.families?.find((x) => x.id === r.item.id);
+      if (!f) return r;
+      const member = r.type === 'member' ? (f.members.find((m) => m.name === r.member?.name) || r.member) : r.member;
+      return { ...r, item: f, member };
+    });
+  });
 
   const feedGoto = (item) => {
     setFeedOpen(false);
