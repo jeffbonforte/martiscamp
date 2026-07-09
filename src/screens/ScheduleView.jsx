@@ -14,7 +14,7 @@ export function ScheduleView({ attendees, data, onOpenEvent }) {
         return (
           <div key={d.key} style={{ flex: '0 0 auto', width: 172, background: 'var(--surface-card)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', overflow: 'hidden', opacity: off ? 0.7 : 1 }}>
             <div style={{ padding: 'var(--space-3) var(--space-4)', borderBottom: '1px solid var(--divider)', background: 'var(--surface-sunk)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <div style={{ font: 'var(--fw-regular) var(--text-xl)/1 var(--font-display)', color: 'var(--text-strong)' }}>{d.label} {d.sub}</div>
+              <div style={{ font: 'var(--fw-regular) var(--text-xl)/1 var(--font-display)', color: 'var(--text-strong)', whiteSpace: 'nowrap' }}>{d.label} {d.sub}</div>
               <WeatherPill wx={d.wx} />
             </div>
             <div style={{ padding: 'var(--space-3)', display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>

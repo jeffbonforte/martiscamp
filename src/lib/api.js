@@ -197,12 +197,16 @@ export async function loadAppData() {
   return {
     source: 'supabase',
     me: meOut,
+    // Weather has no live table yet, so it stays on the mock placeholders
+    // (real temps are overlaid by lib/weather.js). Everything else reflects the
+    // live database exactly — empty means empty, never a mock fallback, so a
+    // wiped/quiet database doesn't resurrect sample families/events/feed.
     weekendDays: MOCK.weekendDays,
     snowReport: MOCK.snowReport,
-    families: mappedFamilies.length ? mappedFamilies : MOCK.families,
-    gatherings: gatherings.length ? gatherings : MOCK.gatherings,
-    events: communityEvents.length ? communityEvents : MOCK.events,
-    feed: mappedFeed.length ? mappedFeed : MOCK.feed,
+    families: mappedFamilies,
+    gatherings,
+    events: communityEvents,
+    feed: mappedFeed,
     favorites,
   };
 }

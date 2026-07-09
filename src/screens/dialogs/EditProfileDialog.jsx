@@ -116,7 +116,7 @@ export function EditProfileDialog({ target, weekendDays, onClose, onSaved, onRel
               <Input label="Email" value={form.email || ''} onChange={(e) => set('email', e.target.value)} leading={<i data-lucide="mail" style={{ width: 15, height: 15 }} />} />
             </div>
             <ChipMulti label="Interests" options={AMENITY_KEYS} value={form.interests} onToggle={(v) => toggle('interests', v)} labelOf={(k) => AMENITIES[k].label} />
-            <ChipMulti label="Up this weekend" options={weekendDays.map((d) => d.key)} value={form.days} onToggle={(v) => toggle('days', v)} labelOf={(k) => weekendDays.find((d) => d.key === k).label} />
+            <ChipMulti label="Days you'll be up" options={weekendDays.map((d) => d.key)} value={form.days} onToggle={(v) => toggle('days', v)} labelOf={(k) => weekendDays.find((d) => d.key === k).label} />
           </>
         )}
       </div>
