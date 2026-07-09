@@ -10,11 +10,51 @@ const DAYS = buildWeekendDays().map((d) => `${d.label}, ${MONTHS_SHORT[d.date.ge
 const AMENITY_OPTS = Object.entries(AMENITIES).map(([value, v]) => ({ value, label: v.label }));
 
 /**
+ * Search-and-pick invitees from the real member directory. Selected people show
+ * as removable chips; typing filters the members, and up to 4 suggestions show
+ * when the field is empty.
+ */
+function InviteePicker({ candidates, selected, onAdd, onRemove, hint }) {
+  const [query, setQuery] = React.useState('');
+  const pool = candidates.filter((n) => !selected.includes(n));
+  const q = query.trim().toLowerCase();
+  const suggestions = (q ? pool.filter((n) => n.toLowerCase().includes(q)) : pool).slice(0, q ? 8 : 4);
+  return (
+    <div>
+      {selected.length > 0 && (
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 8 }}>
+          {selected.map((n) => (
+            <span key={n} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '6px 8px 6px 11px', borderRadius: 'var(--radius-pill)', background: 'var(--brand)', color: '#fff', font: 'var(--fw-semibold) var(--text-xs)/1 var(--font-sans)' }}>
+              {n}
+              <button type="button" onClick={() => onRemove(n)} aria-label={`Remove ${n}`} style={{ display: 'inline-flex', border: 'none', background: 'transparent', cursor: 'pointer', color: '#fff', padding: 0 }}>
+                <i data-lucide="x" style={{ width: 13, height: 13 }} />
+              </button>
+            </span>
+          ))}
+        </div>
+      )}
+      <Input placeholder="Search members to invite" value={query} onChange={(e) => setQuery(e.target.value)} leading={<i data-lucide="search" style={{ width: 15, height: 15 }} />} />
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 8 }}>
+        {suggestions.length === 0 ? (
+          <span style={{ font: 'var(--role-small)', color: 'var(--text-muted)' }}>{q ? 'No matching members' : 'No other members to invite yet'}</span>
+        ) : suggestions.map((n) => (
+          <button key={n} type="button" onClick={() => { onAdd(n); setQuery(''); }}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '6px 11px', borderRadius: 'var(--radius-pill)', cursor: 'pointer', border: '1px solid var(--border-strong)', background: 'var(--surface-card)', color: 'var(--text-body)', font: 'var(--fw-semibold) var(--text-xs)/1 var(--font-sans)' }}>
+            <i data-lucide="plus" style={{ width: 12, height: 12 }} />{n}
+          </button>
+        ))}
+      </div>
+      {hint && <div style={{ font: 'var(--text-xs) var(--font-sans)', color: 'var(--text-muted)', marginTop: 8 }}>{hint}</div>}
+    </div>
+  );
+}
+
+/**
  * Host a get-together OR post an announcement. Get-togethers are created in
  * Supabase (when configured); announcements are not yet persisted (no-op close).
  * Calls onCreated() after a successful create so the app can refresh.
  */
-export function HostDialog({ open, initialType = 'gathering', onClose, onCreated }) {
+export function HostDialog({ open, data, initialType = 'gathering', onClose, onCreated }) {
   const [postType, setPostType] = React.useState(initialType);
   const [planVis, setPlanVis] = React.useState('open');
   const [invitees, setInvitees] = React.useState([]);
@@ -38,18 +78,14 @@ export function HostDialog({ open, initialType = 'gathering', onClose, onCreated
     }
   }, [open, initialType]);
 
-  const toggleInvitee = (n) => setInvitees((v) => (v.includes(n) ? v.filter((x) => x !== n) : [...v, n]));
-  const chip = (n) => {
-    const on = invitees.includes(n);
-    return (
-      <button key={n} type="button" onClick={() => toggleInvitee(n)}
-        style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '6px 11px', borderRadius: 'var(--radius-pill)', cursor: 'pointer',
-          border: `1px solid ${on ? 'var(--brand)' : 'var(--border-strong)'}`, background: on ? 'var(--brand)' : 'var(--surface-card)', color: on ? '#fff' : 'var(--text-body)',
-          font: 'var(--fw-semibold) var(--text-xs)/1 var(--font-sans)' }}>
-        {on && <i data-lucide="check" style={{ width: 12, height: 12 }} />}{n}
-      </button>
-    );
-  };
+  const addInvitee = (n) => setInvitees((v) => (v.includes(n) ? v : [...v, n]));
+  const removeInvitee = (n) => setInvitees((v) => v.filter((x) => x !== n));
+  // Real members (across all families) except yourself — the invite candidates.
+  const candidates = React.useMemo(() => {
+    const names = new Set();
+    (data?.families || []).forEach((f) => (f.members || []).forEach((m) => { if (m.name && m.name !== data?.me?.name) names.add(m.name); }));
+    return [...names].sort();
+  }, [data]);
 
   const submit = async () => {
     if (postType !== 'gathering') { onClose(); return; } // announcements not persisted yet
@@ -83,12 +119,8 @@ export function HostDialog({ open, initialType = 'gathering', onClose, onCreated
                 options={[{ value: 'all', label: 'All families', icon: 'users' }, { value: 'specific', label: 'Specific people', icon: 'user' }]} />
             </div>
             {audience === 'specific' && (
-              <div>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-                  {['The Bells', 'The Kwans', 'The Fords', 'The Alvarezes', 'Tom Bell', 'Rosa Alvarez'].map(chip)}
-                </div>
-                <div style={{ font: 'var(--text-xs) var(--font-sans)', color: 'var(--text-muted)', marginTop: 8 }}>Only the people you pick will see this announcement.</div>
-              </div>
+              <InviteePicker candidates={candidates} selected={invitees} onAdd={addInvitee} onRemove={removeInvitee}
+                hint="Only the people you pick will see this announcement." />
             )}
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: 'var(--space-3)', borderRadius: 'var(--radius-md)', background: 'var(--warm-soft)', color: 'var(--cedar-700)', font: 'var(--text-xs) var(--font-sans)' }}>
               <i data-lucide="megaphone" style={{ width: 15, height: 15 }} /> Announcements appear in {audience === 'all' ? 'everyone’s' : 'the recipients’'} Updates feed. No RSVP, date, or place.
@@ -117,10 +149,8 @@ export function HostDialog({ open, initialType = 'gathering', onClose, onCreated
             ) : (
               <div>
                 <div style={{ font: 'var(--fw-medium) var(--text-sm)/1.3 var(--font-sans)', color: 'var(--text-strong)', marginBottom: 6 }}>Invite</div>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-                  {['Tom Bell', 'Ben Kwan', 'Pat Reyes', 'Rosa Alvarez', 'Mia Ford', 'Chi Okafor'].map(chip)}
-                </div>
-                <div style={{ font: 'var(--text-xs) var(--font-sans)', color: 'var(--text-muted)', marginTop: 8 }}>Only invited members will see this get-together.</div>
+                <InviteePicker candidates={candidates} selected={invitees} onAdd={addInvitee} onRemove={removeInvitee}
+                  hint="Only invited members will see this get-together." />
               </div>
             )}
             <Textarea label="Details" rows={3} placeholder="9 holes, then lunch at the Bistro. Kids welcome." value={details} onChange={(e) => setDetails(e.target.value)} />

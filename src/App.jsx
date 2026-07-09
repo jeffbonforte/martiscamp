@@ -242,7 +242,7 @@ export function App({ onSignOut }) {
         ))}
       </nav>
 
-      <HostDialog open={planOpen} initialType={postType} onClose={() => setPlanOpen(false)} onCreated={reload} />
+      <HostDialog open={planOpen} data={data} initialType={postType} onClose={() => setPlanOpen(false)} onCreated={reload} />
       <EditProfileDialog target={editTarget} weekendDays={data.weekendDays} onClose={() => setEditTarget(null)} onSaved={bump} onReload={reload} />
       <AddMemberDialog family={addMemberFor} open={!!addMemberFor} onClose={() => setAddMemberFor(null)} onCreated={reload} />
       <AddToCalendarDialog event={calEvent} onClose={() => setCalEvent(null)} />
