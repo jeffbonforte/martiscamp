@@ -69,6 +69,25 @@ export function App({ onSignOut }) {
   const owned = (f) => f && f.id === me.familyId;
   const myFam = data.families.find((f) => f.id === me.familyId);
   const myMember = myFam && myFam.members.find((m) => m.name === me.name);
+
+  // Signed in but not yet linked to a family/member — never fall through to the
+  // main app (which assumes a family and would otherwise show someone else's).
+  if (me.needsSetup || !myFam) {
+    return (
+      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 'var(--space-6)', background: 'var(--surface-page)' }}>
+        <div style={{ maxWidth: 440, textAlign: 'center', background: 'var(--surface-card)', border: '1px solid var(--border)', borderRadius: 'var(--radius-xl)', boxShadow: 'var(--shadow-md)', padding: 'var(--space-8)' }}>
+          <div style={{ font: 'var(--fw-regular) var(--text-3xl)/1.1 var(--font-display)', color: 'var(--text-strong)', marginBottom: 'var(--space-3)' }}>Welcome to Martis Camp Families</div>
+          <div style={{ font: 'var(--role-body)', color: 'var(--text-muted)', marginBottom: 'var(--space-6)' }}>
+            You're signed in as <b style={{ color: 'var(--text-body)' }}>{me.name}</b>, but your profile hasn't been set up yet. An admin (or your family's account holder) will add you to your family shortly — check back soon.
+          </div>
+          <button type="button" onClick={onSignOut}
+            style={{ padding: '10px 18px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-strong)', background: 'var(--surface-card)', cursor: 'pointer', font: 'var(--fw-semibold) var(--text-sm)/1 var(--font-sans)', color: 'var(--text-strong)' }}>
+            Sign out
+          </button>
+        </div>
+      </div>
+    );
+  }
   const editMyProfile = () => setEditTarget({ type: 'member', family: myFam, member: myMember });
 
   const toggleFav = (id) => setFavorites((s) => {
@@ -105,7 +124,7 @@ export function App({ onSignOut }) {
     if (item.familyId) { const f = data.families.find((x) => x.id === item.familyId); if (f) return openFamily(f); }
   };
   const unread = data.feed.filter((f) => f.unread).length;
-  const meFamilyLabel = myFam ? `The ${myFam.name}s` : 'The Bonfortes';
+  const meFamilyLabel = myFam ? `The ${myFam.name}s` : '';
 
   const nav = [
     { key: 'weekend', label: 'Here now', icon: 'calendar-check' },

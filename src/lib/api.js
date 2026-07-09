@@ -205,9 +205,12 @@ export async function loadAppData() {
   }).filter(Boolean);
 
   const meFamily = me ? familyById[me.family_id] : null;
+  // A signed-in user with no linked member row is NOT the mock user — show them
+  // as themselves (by email) with no family/admin so they can never inherit
+  // someone else's identity. `needsSetup` flags the app to onboard them.
   const meOut = me
-    ? { name: me.name, familyId: meFamily ? meFamily.slug : MOCK.me.familyId, isAdmin: !!me.is_admin }
-    : MOCK.me;
+    ? { name: me.name, familyId: meFamily ? meFamily.slug : null, isAdmin: !!me.is_admin }
+    : { name: session?.user?.email || 'You', familyId: null, isAdmin: false, needsSetup: true };
 
   return {
     source: 'supabase',

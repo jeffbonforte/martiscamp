@@ -7,7 +7,8 @@ import { isSkiSeason } from '../lib/calendar.js';
 
 /** "Here now" — who is physically at the Camp today, plus what's coming up. */
 export function WeekendScreen({ data, season, rsvpMap = {}, onPlan, onOpenEvent, onAddCal }) {
-  const [days, setDays] = React.useState(data.families[0].presence.days);
+  const myFam = data.families.find((f) => f.id === data.me?.familyId) || data.families[0];
+  const [days, setDays] = React.useState(myFam ? myFam.presence.days : []);
   const toggle = (k) => setDays((d) => (d.includes(k) ? d.filter((x) => x !== k) : [...d, k]));
   const here = data.families.filter((f) => f.presence.here);
   const today = data.weekendDays[0]?.date || new Date();
@@ -52,7 +53,7 @@ export function WeekendScreen({ data, season, rsvpMap = {}, onPlan, onOpenEvent,
       <Card style={{ marginBottom: 'var(--space-8)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 24, flexWrap: 'wrap' }}>
         <div>
           <div style={{ font: 'var(--role-h3)', color: 'var(--text-strong)' }}>Mark your days</div>
-          <div style={{ font: 'var(--role-small)', color: 'var(--text-muted)', marginTop: 2 }}>Let neighbors know when the Bonfortes will be up.</div>
+          <div style={{ font: 'var(--role-small)', color: 'var(--text-muted)', marginTop: 2 }}>Let neighbors know when {myFam ? `the ${myFam.name}s` : 'you'} will be up.</div>
         </div>
         <AttendancePicker days={data.weekendDays} selected={days} onToggle={toggle} />
       </Card>
