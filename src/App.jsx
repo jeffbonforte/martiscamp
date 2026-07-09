@@ -33,7 +33,6 @@ export function App({ onSignOut }) {
   const [route, setRoute] = React.useState(null);
   const [planOpen, setPlanOpen] = React.useState(false);
   const [postType, setPostType] = React.useState('gathering');
-  const [seasonMode, setSeasonMode] = React.useState('auto');
   const [favorites, setFavorites] = React.useState(new Set());
   const [rsvpMap, setRsvpMap] = React.useState({});
   const [feedOpen, setFeedOpen] = React.useState(false);
@@ -56,8 +55,7 @@ export function App({ onSignOut }) {
   useLucide();
   React.useEffect(() => { document.querySelector('.content')?.scrollTo(0, 0); }, [view, route]);
 
-  const autoSeason = seasonOf(new Date());
-  const season = seasonMode === 'auto' ? autoSeason : seasonMode;
+  const season = seasonOf(new Date()); // theme follows the time of year automatically
 
   if (!base) {
     return <div style={{ height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)', font: 'var(--role-body)' }}>Loading…</div>;
@@ -154,13 +152,6 @@ export function App({ onSignOut }) {
             <i data-lucide="map-pin" style={{ width: 16, height: 16 }} /> Martis Camp · Truckee, CA
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-            <select value={seasonMode} onChange={(e) => setSeasonMode(e.target.value)} className="seasonSelect" aria-label="Season">
-              <option value="auto">Auto · {autoSeason.charAt(0).toUpperCase() + autoSeason.slice(1)}</option>
-              <option value="winter">Winter</option>
-              <option value="spring">Spring</option>
-              <option value="summer">Summer</option>
-              <option value="fall">Fall</option>
-            </select>
             <WhatsButton size="sm" label="WhatsApp" />
             <button type="button" aria-label="Notifications" onClick={() => setFeedOpen((o) => !o)}
               style={{ position: 'relative', display: 'inline-flex', border: 'none', background: feedOpen ? 'var(--surface-sunk)' : 'transparent', cursor: 'pointer', padding: 8, borderRadius: 'var(--radius-md)' }}>

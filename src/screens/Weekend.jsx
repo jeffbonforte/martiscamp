@@ -3,6 +3,7 @@ import { FamilyCard, GatheringCard, AttendancePicker, Card, Button } from '../co
 import { useLucide } from '../lib/useLucide.js';
 import { coverUrl, heroUrl, heroGradient } from '../lib/images.js';
 import { WeatherPill, SnowReport } from './shared.jsx';
+import { isSkiSeason } from '../lib/calendar.js';
 
 /** "Here now" — who is physically at the Camp today, plus what's coming up. */
 export function WeekendScreen({ data, season, rsvpMap = {}, onPlan, onOpenEvent, onAddCal }) {
@@ -32,7 +33,7 @@ export function WeekendScreen({ data, season, rsvpMap = {}, onPlan, onOpenEvent,
         </div>
       </div>
 
-      {season === 'winter' && <div style={{ marginBottom: 'var(--space-6)' }}><SnowReport report={data.snowReport} /></div>}
+      {isSkiSeason() && <div style={{ marginBottom: 'var(--space-6)' }}><SnowReport report={data.snowReport} /></div>}
 
       {/* Weather strip — 7-day look-ahead */}
       <div style={{ font: 'var(--role-eyebrow)', letterSpacing: 'var(--tracking-wide)', textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: 'var(--space-3)' }}>Next 7 days</div>

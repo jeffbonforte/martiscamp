@@ -55,7 +55,7 @@ export function Landing({ configured = false, onDemoAuthed }) {
             See who's up<br />at the Camp.
           </h1>
           <p style={{ font: 'var(--fw-regular) var(--text-xl)/1.5 var(--font-sans)', color: 'rgba(255,255,255,.88)', maxWidth: 440, margin: 0 }}>
-            Coordinate weekends with the families you know — who's visiting, what's happening, and the impromptu golf, ski runs, and dinners in between.
+            Coordinate visits with the families you know — who's up at the Camp, what's happening, and the impromptu golf, ski runs, and dinners in between.
           </p>
           <div style={{ display: 'flex', gap: 'var(--space-6)', marginTop: 'var(--space-8)', color: 'rgba(255,255,255,.82)', font: 'var(--role-small)' }}>
             <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}><i data-lucide="users" style={{ width: 16, height: 16 }} /> 50 member families</span>

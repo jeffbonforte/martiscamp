@@ -33,8 +33,8 @@ export function MemberProfileScreen({ family, member, data, favorites, onToggleF
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', marginBottom: 12 }}>
             {member.days.length > 0
-              ? <Badge tone="success" dot>Here this weekend</Badge>
-              : <Badge>Not up this weekend</Badge>}
+              ? <Badge tone="success" dot>Up at the Camp</Badge>
+              : <Badge>Not up right now</Badge>}
             {onToggleFav && (
               <Button variant={fav ? 'secondary' : 'ghost'} size="sm" onClick={() => onToggleFav(favId)}
                 iconLeft={<i data-lucide="star" style={{ width: 14, height: 14, fill: fav ? 'currentColor' : 'none' }} />}>{fav ? 'Favorited' : 'Favorite ' + member.name.split(' ')[0]}</Button>
@@ -61,7 +61,7 @@ export function MemberProfileScreen({ family, member, data, favorites, onToggleF
       </div>
 
       {/* Personal schedule */}
-      <div style={{ font: 'var(--role-h2)', color: 'var(--text-strong)', marginBottom: 'var(--space-4)' }}>{member.name.split(' ')[0]}'s weekend</div>
+      <div style={{ font: 'var(--role-h2)', color: 'var(--text-strong)', marginBottom: 'var(--space-4)' }}>{member.name.split(' ')[0]}'s upcoming days</div>
       <div style={{ marginBottom: 'var(--space-8)' }}>
         <ScheduleView attendees={[member]} data={data} onOpenEvent={onOpenEvent} />
       </div>
@@ -69,7 +69,7 @@ export function MemberProfileScreen({ family, member, data, favorites, onToggleF
       {/* Events */}
       <div style={{ font: 'var(--role-h2)', color: 'var(--text-strong)', marginBottom: 'var(--space-4)' }}>Events</div>
       {myEvents.length === 0
-        ? <EmptyState glyph="calendar" title={`No events yet for ${member.name.split(' ')[0]}`} description="Nothing on the calendar this weekend." />
+        ? <EmptyState glyph="calendar" title={`No events yet for ${member.name.split(' ')[0]}`} description="Nothing on the calendar yet." />
         : <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px,1fr))', gap: 'var(--space-4)' }}>
             {myEvents.map((g) => (
               <button key={g.id} type="button" onClick={() => onOpenEvent(g)} style={{ textAlign: 'left', cursor: 'pointer', background: 'var(--surface-card)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', padding: 'var(--space-4)', boxShadow: 'var(--shadow-sm)', display: 'flex', flexDirection: 'column', gap: 8 }}>

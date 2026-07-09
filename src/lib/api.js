@@ -22,14 +22,18 @@ const DAY_ORDER = WINDOW.map((d) => d.key);
 const DAY_LABEL = Object.fromEntries(WINDOW.map((d) => [d.key, d.label]));
 const WEEKDAY_TO_KEY = { Thu: 'thu', Fri: 'fri', Sat: 'sat', Sun: 'sun', Mon: 'mon', Tue: 'tue', Wed: 'wed' };
 
+// Presence is day-agnostic (people visit any days, not just weekends). "here"
+// means they're at the Camp TODAY (the first day of the rolling window);
+// otherwise the label describes when in the window they're up next.
 function presenceFrom(days) {
-  const sorted = [...new Set(days)].sort((a, b) => DAY_ORDER.indexOf(a) - DAY_ORDER.indexOf(b));
+  const sorted = [...new Set(days)].filter((d) => DAY_ORDER.includes(d)).sort((a, b) => DAY_ORDER.indexOf(a) - DAY_ORDER.indexOf(b));
   if (sorted.length === 0) return { here: false, label: 'Away', days: [] };
-  if (sorted.length >= 6) return { here: true, label: 'Here all week', days: sorted };
-  if (sorted[0] === 'sat') return { here: true, label: 'Arriving Sat', days: sorted };
-  if (sorted.includes('fri') && sorted.includes('sat') && sorted.includes('sun')) return { here: true, label: 'Here this weekend', days: sorted };
+  const hereToday = sorted[0] === DAY_ORDER[0];
+  if (sorted.length >= 6) return { here: hereToday, label: 'Here all week', days: sorted };
   const a = DAY_LABEL[sorted[0]], b = DAY_LABEL[sorted[sorted.length - 1]];
-  return { here: true, label: a === b ? `Here ${a}` : `Here ${a}–${b}`, days: sorted };
+  const span = a === b ? a : `${a}–${b}`;
+  if (hereToday) return { here: true, label: sorted.length === 1 ? 'Here today' : `Here ${span}`, days: sorted };
+  return { here: false, label: sorted.length === 1 ? `Up ${a}` : `Up ${span}`, days: sorted };
 }
 
 function relativeTime(iso) {

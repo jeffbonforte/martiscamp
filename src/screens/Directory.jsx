@@ -42,7 +42,7 @@ export function DirectoryScreen({ data, favorites, onToggleFav, onOpen }) {
 
   return (
     <div>
-      <PageHead eyebrow={`50 member families · ${hereCount} up this weekend`} title="Family directory"
+      <PageHead eyebrow={`${data.families.length} member ${data.families.length === 1 ? 'family' : 'families'} · ${hereCount} here now`} title="Family directory"
         right={<div style={{ width: 260 }}><Input leading={<i data-lucide="search" style={{ width: 16, height: 16 }} />} placeholder="Search families" value={q} onChange={(e) => setQ(e.target.value)} /></div>} />
 
       {/* Favorites row */}

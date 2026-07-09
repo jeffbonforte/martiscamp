@@ -2,7 +2,7 @@ import React from 'react';
 import { AttendancePicker, Badge, Button, AMENITIES } from '../components/index.js';
 import { useLucide } from '../lib/useLucide.js';
 import { PageHead, SnowReport } from './shared.jsx';
-import { MONTHS, WEEKDAYS, monthMatrix, sameDay } from '../lib/calendar.js';
+import { MONTHS, WEEKDAYS, monthMatrix, sameDay, isSkiSeason } from '../lib/calendar.js';
 
 export function CalendarScreen({ data, season, favorites, onOpenEvent, onPlanVisit }) {
   const myFam = data.families.find((f) => f.id === data.me.familyId);
@@ -116,7 +116,7 @@ export function CalendarScreen({ data, season, favorites, onOpenEvent, onPlanVis
         </div>
       )}
 
-      {season === 'winter' && <div style={{ marginBottom: 'var(--space-6)' }}><SnowReport report={data.snowReport} /></div>}
+      {isSkiSeason() && <div style={{ marginBottom: 'var(--space-6)' }}><SnowReport report={data.snowReport} /></div>}
 
       {/* Near-term agenda */}
       <div style={{ font: 'var(--role-h2)', color: 'var(--text-strong)', marginBottom: 'var(--space-4)' }}>The next week or two</div>

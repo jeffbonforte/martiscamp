@@ -8,13 +8,6 @@ import { loadVisitPlan, saveVisitPlan, isSupabaseConfigured } from '../lib/api.j
 const APP_TODAY = new Date();
 const startOfToday = new Date(APP_TODAY.getFullYear(), APP_TODAY.getMonth(), APP_TODAY.getDate());
 
-function weekOf(date) {
-  const d = new Date(date);
-  const day = d.getDay();
-  d.setDate(d.getDate() - day); // back to Sunday
-  return dateKey(d);
-}
-
 /** Mark attendance up to 12 months ahead — per member × date. */
 export function PlanVisit({ data, onBack }) {
   const myFam = data.families.find((f) => f.id === data.me.familyId);
@@ -76,7 +69,6 @@ export function PlanVisit({ data, onBack }) {
   };
 
   const dayCount = current.size;
-  const weekendCount = new Set([...current].map((k) => weekOf(new Date(k + 'T00:00:00')))).size;
   const months = nextMonths(APP_TODAY, 12);
 
   return (
@@ -96,7 +88,7 @@ export function PlanVisit({ data, onBack }) {
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
             <span style={{ font: 'var(--role-small)', color: 'var(--text-muted)' }}>
-              Marked for <b style={{ color: 'var(--success)', fontWeight: 'var(--fw-semibold)' }}>{dayCount} day{dayCount === 1 ? '' : 's'}</b> across {weekendCount} weekend{weekendCount === 1 ? '' : 's'}
+              Marked for <b style={{ color: 'var(--success)', fontWeight: 'var(--fw-semibold)' }}>{dayCount} day{dayCount === 1 ? '' : 's'}</b>
             </span>
             <Button size="sm" disabled={saving} onClick={savePlan} iconLeft={<i data-lucide="check" style={{ width: 15, height: 15 }} />}>{saving ? 'Saving…' : saved ? 'Saved ✓' : 'Save plan'}</Button>
           </div>

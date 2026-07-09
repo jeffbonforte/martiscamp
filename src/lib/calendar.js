@@ -38,6 +38,16 @@ export function seasonOf(date) {
   return 'fall';
 }
 
+/**
+ * Ski season at Martis Camp / Northstar runs roughly Oct 1 – Apr 30, so the snow
+ * report is relevant across fall, winter, and spring — not just meteorological
+ * winter. Months: Oct(9) Nov(10) Dec(11) Jan(0) Feb(1) Mar(2) Apr(3).
+ */
+export function isSkiSeason(date = new Date()) {
+  const m = date.getMonth();
+  return m >= 9 || m <= 3;
+}
+
 /** ISO date key (YYYY-MM-DD) in local time — the attendance key. */
 export function dateKey(date) {
   const y = date.getFullYear();

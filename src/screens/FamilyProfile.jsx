@@ -77,7 +77,7 @@ export function FamilyProfileScreen({ family, data, favorites, onToggleFav, canE
 
       {/* Schedule */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, marginBottom: 'var(--space-4)', flexWrap: 'wrap' }}>
-        <div style={{ font: 'var(--role-h2)', color: 'var(--text-strong)' }}>{who === 'family' ? "This weekend's schedule" : `${who.split(' ')[0]}'s schedule`}</div>
+        <div style={{ font: 'var(--role-h2)', color: 'var(--text-strong)' }}>{who === 'family' ? 'Upcoming days' : `${who.split(' ')[0]}'s schedule`}</div>
         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
           <button type="button" onClick={() => setWho('family')} style={chipStyle(who === 'family')}>Whole family</button>
           {family.members.map((m) => <button key={m.name} type="button" onClick={() => setWho(m.name)} style={chipStyle(who === m.name)}>{m.name.split(' ')[0]}</button>)}

@@ -13,14 +13,14 @@ export function coverUrl(name) {
   return IMG_BASE + name;
 }
 
-// Season → hero image, mapped to files that actually exist in the asset set.
-// (The prototype references not-yet-delivered seasonal heroes; we map to the
-// closest real photo and let the gradient show through if the file is missing.)
+// Season → hero image. Each season has a dedicated photo whose content matches
+// (winter lodge in snow, fall foliage, summer golf, spring trails); a missing
+// file falls back to the seasonal gradient below.
 export const HERO_BY_SEASON = {
-  winter: 'ski-lodge.jpg',
-  spring: 'treehouse-park.jpg',
-  summer: 'golf-summer.jpg',
-  fall: 'lodge.jpg',
+  winter: 'hero-winter.jpg',
+  spring: 'hero-spring.jpg',
+  summer: 'hero-summer.jpg',
+  fall: 'hero-fall.jpg',
 };
 
 // Tonal gradient placeholders per season — used behind/beneath the hero photo so
