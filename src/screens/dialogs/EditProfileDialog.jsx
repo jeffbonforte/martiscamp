@@ -6,7 +6,10 @@ import { coverUrl } from '../../lib/images.js';
 import { ChipMulti, CoverPositioner } from './common.jsx';
 
 const AMENITY_KEYS = Object.keys(AMENITIES);
-const COVER_OPTIONS = ['family/bonfortes.jpg', 'lodge.jpg', 'ski-lodge.jpg', 'family-barn.jpg', 'treehouse-park.jpg', 'golf-summer.jpg', 'camp-lodge-winter-aerial.jpg'];
+// Shared, generic Martis Camp scenery only — NEVER any family's personal photo.
+// A family's own photo comes solely from their private "Upload a cover" (which
+// is not shared with, or visible to, other families).
+const COVER_OPTIONS = ['lodge.jpg', 'ski-lodge.jpg', 'family-barn.jpg', 'treehouse-park.jpg', 'golf-summer.jpg', 'camp-lodge-winter-aerial.jpg'];
 
 /**
  * Edit a family or a member. Matches the prototype: writes back onto the data
@@ -77,7 +80,7 @@ export function EditProfileDialog({ target, weekendDays, onClose, onSaved, onRel
           <>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
               <Input label="Family name" value={form.name} onChange={(e) => set('name', e.target.value)} hint="Shown as “The ‹name›s”" />
-              <Select label="Cover photo" options={COVER_OPTIONS.map((c) => ({ value: c, label: c.split('/').pop().replace(/\.[a-z]+$/, '').replace(/-/g, ' ') }))} value={form.cover} onChange={(e) => set('cover', e.target.value)} />
+              <Select label="Scenic background" options={COVER_OPTIONS.map((c) => ({ value: c, label: c.split('/').pop().replace(/\.[a-z]+$/, '').replace(/-/g, ' ') }))} value={form.cover} onChange={(e) => set('cover', e.target.value)} />
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
               <CoverPositioner src={coverUrl(form.cover)} value={form.coverPos} onChange={(v) => set('coverPos', v)} />
