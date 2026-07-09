@@ -21,6 +21,7 @@ export function CalendarScreen({ data, season, favorites, onOpenEvent, onPlanVis
   // day key ("fri") -> the real Date in the rolling window.
   const dayKeyDate = (key) => { const wd = data.weekendDays.find((d) => d.key === key); return wd ? wd.date : null; };
   const wxForDate = (date) => { const wd = data.weekendDays.find((d) => sameDay(d.date, date)); return wd ? wd.wx : null; };
+  const evDate = (e) => (e.date ? new Date(e.date + 'T00:00:00') : null); // community event's real date
 
   // ---- Favorites arrivals ----
   const favFamilies = data.families.filter((f) => favorites.has(f.id));
@@ -42,23 +43,24 @@ export function CalendarScreen({ data, season, favorites, onOpenEvent, onPlanVis
   const agenda = data.weekendDays.map((wd) => {
     const date = wd.date;
     const arrivingFamilies = data.families.filter((f) => f.presence.days[0] === wd.key && f.presence.here);
-    const evs = data.events.filter((e) => e.dayKey === wd.key);
+    const evs = data.events.filter((e) => { const d = evDate(e); return d && sameDay(d, wd.date); });
     const gats = data.gatherings.filter((g) => g.day === wd.key);
     return { wd, date, arrivingFamilies, evs, gats };
   }).filter((row) => row.arrivingFamilies.length || row.evs.length || row.gats.length);
 
   // ---- Month view chips ----
   const chipsForDate = (date) => {
-    if (date < winStart || date > winEnd) return []; // events live within the rolling window
-    // Official community events (badge, non-clickable) …
+    // Official community events show on their exact date — any day, not just the
+    // rolling window.
     const community = data.events
-      .filter((e) => e.day === date.getDate() && e.community)
+      .filter((e) => { const d = evDate(e); return e.community && d && sameDay(d, date); })
       .map((e) => ({ title: e.title, amenity: e.amenity, community: true, gathering: null }));
-    // … plus member get-togethers (clickable), keyed by gathering identity so
-    // there are no title-match misses or duplicates.
-    const gats = data.gatherings
-      .filter((g) => { const gd = dayKeyDate(g.day); return gd && sameDay(gd, date); })
-      .map((g) => ({ title: g.title, amenity: g.amenity, community: false, gathering: g }));
+    // Member get-togethers are keyed to a weekday within the rolling window.
+    const gats = (date >= winStart && date <= winEnd)
+      ? data.gatherings
+          .filter((g) => { const gd = dayKeyDate(g.day); return gd && sameDay(gd, date); })
+          .map((g) => ({ title: g.title, amenity: g.amenity, community: false, gathering: g }))
+      : [];
     return [...community, ...gats];
   };
 

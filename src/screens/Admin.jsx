@@ -2,7 +2,7 @@ import React from 'react';
 import { Card, Button, Input, Select, SegmentedControl, AmenityTag, Badge, EmptyState, AMENITIES } from '../components/index.js';
 import { useLucide } from '../lib/useLucide.js';
 import { PageHead } from './shared.jsx';
-import { buildWeekendDays, MONTHS_SHORT } from '../lib/calendar.js';
+import { dateKey } from '../lib/calendar.js';
 import {
   listInvites, revokeInvite, createMember,
   createFamily, archiveFamily,
@@ -11,13 +11,11 @@ import {
 } from '../lib/api.js';
 
 const AMENITY_OPTS = Object.entries(AMENITIES).map(([value, v]) => ({ value, label: v.label }));
-// Real upcoming week (rolling from today) — not a frozen July prototype week.
-const WINDOW = buildWeekendDays();
-const DAY_OPTS = WINDOW.map((d) => ({ value: d.key, label: `${d.label} ${d.sub}` }));
-const DAY_NUM = Object.fromEntries(WINDOW.map((d) => [d.key, d.sub]));
-const communityDayLabel = (dayKey, dayOfMonth) => {
-  const wd = WINDOW.find((d) => d.key === dayKey);
-  return wd ? `${MONTHS_SHORT[wd.date.getMonth()]} ${wd.sub}` : `#${dayOfMonth}`;
+const TODAY_KEY = dateKey(new Date());
+// "YYYY-MM-DD" -> "Sat, Jul 20" (falls back gracefully for legacy rows).
+const fmtEventDate = (r) => {
+  if (r.event_date) return new Date(r.event_date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
+  return r.day_of_month ? `day ${r.day_of_month}` : '—';
 };
 
 const Row = ({ children }) => (
@@ -106,16 +104,16 @@ function InvitesTab({ data }) {
 /* ---------- Community calendar ---------- */
 function CommunityTab() {
   const [rows, setRows] = React.useState(null);
-  const [form, setForm] = React.useState({ title: '', place: '', amenity: 'social', dayKey: WINDOW[0].key });
+  const [form, setForm] = React.useState({ title: '', place: '', amenity: 'social', date: '' });
   const [busy, setBusy] = React.useState(false);
   const load = React.useCallback(() => { listCommunity().then(setRows); }, []);
   React.useEffect(() => { load(); }, [load]);
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
   const add = async () => {
-    if (!form.title.trim()) return;
+    if (!form.title.trim() || !form.date) return;
     setBusy(true);
-    await createCommunityEvent({ title: form.title.trim(), place: form.place, amenity: form.amenity, dayKey: form.dayKey, dayOfMonth: DAY_NUM[form.dayKey] });
-    setBusy(false); setForm({ title: '', place: '', amenity: 'social', dayKey: 'fri' }); load();
+    await createCommunityEvent({ title: form.title.trim(), place: form.place, amenity: form.amenity, date: form.date });
+    setBusy(false); setForm({ title: '', place: '', amenity: 'social', date: '' }); load();
   };
   const del = async (id) => { await deleteCommunityEvent(id); load(); };
   return (
@@ -126,8 +124,8 @@ function CommunityTab() {
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr auto', gap: 8, alignItems: 'flex-end', marginBottom: 'var(--space-4)' }}>
         <Select label="Activity" options={AMENITY_OPTS} value={form.amenity} onChange={(e) => set('amenity', e.target.value)} />
-        <Select label="Day" options={DAY_OPTS} value={form.dayKey} onChange={(e) => set('dayKey', e.target.value)} />
-        <Button onClick={add} disabled={busy || !form.title.trim()} iconLeft={<i data-lucide="plus" style={{ width: 15, height: 15 }} />}>Add</Button>
+        <Input label="Date" type="date" min={TODAY_KEY} value={form.date} onChange={(e) => set('date', e.target.value)} />
+        <Button onClick={add} disabled={busy || !form.title.trim() || !form.date} iconLeft={<i data-lucide="plus" style={{ width: 15, height: 15 }} />}>Add</Button>
       </div>
       {rows == null ? <div style={{ font: 'var(--role-small)', color: 'var(--text-faint)' }}>Loading…</div>
         : rows.length === 0 ? <EmptyState glyph="calendar" title="No community events" description="Add the first official event above." />
@@ -136,7 +134,7 @@ function CommunityTab() {
               {r.amenity && <AmenityTag amenity={r.amenity} size="sm" />}
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ font: 'var(--fw-semibold) var(--text-sm)/1.15 var(--font-sans)', color: 'var(--text-strong)' }}>{r.title}</div>
-                <div style={{ font: 'var(--role-small)', color: 'var(--text-muted)' }}>{r.place} · {communityDayLabel(r.day_key, r.day_of_month)}</div>
+                <div style={{ font: 'var(--role-small)', color: 'var(--text-muted)' }}>{r.place} · {fmtEventDate(r)}</div>
               </div>
               <Button variant="ghost" size="sm" onClick={() => del(r.id)} iconLeft={<i data-lucide="trash-2" style={{ width: 14, height: 14 }} />}>Delete</Button>
             </Row>

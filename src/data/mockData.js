@@ -20,6 +20,9 @@ const WEEKEND_WX = [
   { wx: { hi: 73, lo: 41, icon: 'cloud-sun', cond: 'Partly cloudy' } },
 ];
 
+// Weekday key -> real ISO date in the rolling window (for mock community events).
+const WEEK_ISO = Object.fromEntries(buildWeekendDays().map((d) => [d.key, d.iso]));
+
 export const DATA = {
   me: { name: 'Jeff Bonforte', familyId: 'bonforte' },
 
@@ -116,12 +119,12 @@ export const DATA = {
   ],
 
   events: [
-    { day: 11, dayKey: 'fri', title: 'Live music at the Barn', place: 'The Family Barn', amenity: 'social', community: true },
-    { day: 12, dayKey: 'sat', title: 'Junior tennis clinic', place: 'Tennis Pavilion', amenity: 'tennis', community: true },
-    { day: 12, dayKey: 'sat', title: 'Saturday morning 9 holes', place: 'Golf clubhouse', amenity: 'golf' },
-    { day: 12, dayKey: 'sat', title: 'Sunset paddle', place: 'The Beach Club', amenity: 'beach' },
-    { day: 13, dayKey: 'sun', title: 'Pancake breakfast', place: 'Martis Perk', amenity: 'cafe', community: true },
-    { day: 13, dayKey: 'sun', title: 'Lookout loop hike', place: 'Lookout Lodge', amenity: 'hike' },
+    { day: 11, dayKey: 'fri', date: WEEK_ISO.fri, title: 'Live music at the Barn', place: 'The Family Barn', amenity: 'social', community: true },
+    { day: 12, dayKey: 'sat', date: WEEK_ISO.sat, title: 'Junior tennis clinic', place: 'Tennis Pavilion', amenity: 'tennis', community: true },
+    { day: 12, dayKey: 'sat', date: WEEK_ISO.sat, title: 'Saturday morning 9 holes', place: 'Golf clubhouse', amenity: 'golf' },
+    { day: 12, dayKey: 'sat', date: WEEK_ISO.sat, title: 'Sunset paddle', place: 'The Beach Club', amenity: 'beach' },
+    { day: 13, dayKey: 'sun', date: WEEK_ISO.sun, title: 'Pancake breakfast', place: 'Martis Perk', amenity: 'cafe', community: true },
+    { day: 13, dayKey: 'sun', date: WEEK_ISO.sun, title: 'Lookout loop hike', place: 'Lookout Lodge', amenity: 'hike' },
   ],
 
   feed: [

@@ -190,7 +190,7 @@ export async function loadAppData() {
   });
 
   const communityEvents = community.map((c) => ({
-    day: c.day_of_month, dayKey: c.day_key, title: c.title, place: c.place, amenity: c.amenity, community: true,
+    date: c.event_date, day: c.day_of_month, dayKey: c.day_key, title: c.title, place: c.place, amenity: c.amenity, community: true,
   }));
 
   const mappedFeed = feed.map((it, i) => ({
@@ -543,13 +543,21 @@ export async function archiveFamily(slug) {
 
 export async function listCommunity() {
   if (!isSupabaseConfigured) return [];
-  const { data } = await supabase.from('community_calendar').select('id, title, place, amenity, day_of_month, day_key').order('day_of_month', { ascending: true });
+  const { data } = await supabase.from('community_calendar').select('id, title, place, amenity, day_of_month, day_key, event_date').order('event_date', { ascending: true, nullsFirst: false });
   return data || [];
 }
 
-export async function createCommunityEvent({ title, place, amenity, dayKey, dayOfMonth }) {
+export async function createCommunityEvent({ title, place, amenity, date }) {
   if (!isSupabaseConfigured) return { ok: false, offline: true };
-  const { error } = await supabase.from('community_calendar').insert({ title, place, amenity: amenity || null, day_key: dayKey || null, day_of_month: dayOfMonth || null, is_community: true });
+  // event_date (a plain DATE) is the source of truth; day_of_month/day_key are
+  // kept in sync for any legacy reads.
+  let day_of_month = null, day_key = null;
+  if (date) {
+    const d = new Date(date + 'T00:00:00');
+    day_of_month = d.getDate();
+    day_key = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'][d.getDay()];
+  }
+  const { error } = await supabase.from('community_calendar').insert({ title, place, amenity: amenity || null, event_date: date || null, day_of_month, day_key, is_community: true });
   return error ? { ok: false, error: error.message } : { ok: true };
 }
 
