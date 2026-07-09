@@ -3,7 +3,7 @@ import { Card, Button, Input, Select, SegmentedControl, AmenityTag, Badge, Empty
 import { useLucide } from '../lib/useLucide.js';
 import { PageHead } from './shared.jsx';
 import {
-  listInvites, createInvite, revokeInvite,
+  listInvites, revokeInvite, createMember,
   createFamily, archiveFamily,
   listCommunity, createCommunityEvent, deleteCommunityEvent,
   listAddRequests, resolveAddRequest,
@@ -49,30 +49,50 @@ function FamiliesTab({ data, onReload, onEditFamily }) {
 /* ---------- Invites ---------- */
 function InvitesTab({ data }) {
   const [rows, setRows] = React.useState(null);
+  const [name, setName] = React.useState('');
   const [email, setEmail] = React.useState('');
   const [fam, setFam] = React.useState(data.families[0]?.id || '');
   const [busy, setBusy] = React.useState(false);
+  const [err, setErr] = React.useState('');
   const load = React.useCallback(() => { listInvites().then(setRows); }, []);
   React.useEffect(() => { load(); }, [load]);
-  const add = async () => { if (!email.trim()) return; setBusy(true); await createInvite(email.trim(), fam); setBusy(false); setEmail(''); load(); };
+  const add = async () => {
+    if (!name.trim() || !fam) return;
+    setBusy(true); setErr('');
+    // Creates the person's profile AND (with an email) grants sign-in — so they
+    // land on their own profile, never someone else's placeholder identity.
+    const r = await createMember(fam, { name: name.trim(), email: email.trim() });
+    setBusy(false);
+    if (r.ok || r.offline) { setName(''); setEmail(''); load(); }
+    else setErr(r.error || 'Could not add this person.');
+  };
   const revoke = async (id) => { await revokeInvite(id); load(); };
   return (
     <Card>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr auto', gap: 8, alignItems: 'flex-end', marginBottom: 'var(--space-4)' }}>
-        <Input label="Invite email" type="email" placeholder="name@family.com" value={email} onChange={(e) => setEmail(e.target.value)} />
-        <Select label="Pre-assign family" options={[{ value: '', label: 'No family' }, ...data.families.map((f) => ({ value: f.id, label: f.name }))]} value={fam} onChange={(e) => setFam(e.target.value)} />
-        <Button onClick={add} disabled={busy || !email.trim()} iconLeft={<i data-lucide="send" style={{ width: 15, height: 15 }} />}>Invite</Button>
+      <div style={{ font: 'var(--role-small)', color: 'var(--text-muted)', marginBottom: 'var(--space-4)' }}>
+        Add a person to a family. Include an email and they can sign in — this creates their profile at the same time, so no one is left without one. (Families can also add their own household from the family page.)
       </div>
+      {data.families.length === 0 ? (
+        <EmptyState glyph="users" title="Create a family first" description="Add a family in the Families tab, then add its people here." />
+      ) : (
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr auto', gap: 8, alignItems: 'flex-end', marginBottom: 'var(--space-3)' }}>
+          <Input label="Name" placeholder="First and last name" value={name} onChange={(e) => setName(e.target.value)} />
+          <Input label="Email (grants sign-in)" type="email" placeholder="name@family.com" value={email} onChange={(e) => setEmail(e.target.value)} />
+          <Select label="Family" options={data.families.map((f) => ({ value: f.id, label: f.name }))} value={fam} onChange={(e) => setFam(e.target.value)} />
+          <Button onClick={add} disabled={busy || !name.trim() || !fam} iconLeft={<i data-lucide="user-plus" style={{ width: 15, height: 15 }} />}>Add</Button>
+        </div>
+      )}
+      {err && <div style={{ font: 'var(--role-small)', color: 'var(--danger)', marginBottom: 'var(--space-3)' }}>{err}</div>}
       {rows == null ? <div style={{ font: 'var(--role-small)', color: 'var(--text-faint)' }}>Loading…</div>
-        : rows.length === 0 ? <EmptyState glyph="mail" title="No invites yet" description="Invite the first family by email above." />
+        : rows.length === 0 ? <EmptyState glyph="mail" title="No one added yet" description="Add the first person above." />
           : rows.map((r) => (
             <Row key={r.id}>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ font: 'var(--fw-semibold) var(--text-sm)/1.15 var(--font-mono)', color: 'var(--text-strong)' }}>{r.email}</div>
                 <div style={{ font: 'var(--role-small)', color: 'var(--text-muted)' }}>{r.family ? `The ${r.family}s` : 'Unassigned'}</div>
               </div>
-              <Badge tone={r.status === 'accepted' ? 'success' : r.status === 'revoked' ? 'danger' : 'warning'}>{r.status}</Badge>
-              {r.status === 'pending' && <Button variant="ghost" size="sm" onClick={() => revoke(r.id)}>Revoke</Button>}
+              <Badge tone={r.status === 'accepted' ? 'success' : r.status === 'revoked' ? 'danger' : 'warning'}>{r.status === 'accepted' ? 'signed in' : r.status === 'revoked' ? 'revoked' : 'invited'}</Badge>
+              {r.status !== 'revoked' && <Button variant="ghost" size="sm" onClick={() => revoke(r.id)}>Revoke</Button>}
             </Row>
           ))}
     </Card>

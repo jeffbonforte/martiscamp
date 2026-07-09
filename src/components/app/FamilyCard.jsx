@@ -89,7 +89,13 @@ export function FamilyCard({
               display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
               background: 'rgba(255,255,255,.9)', backdropFilter: 'blur(6px)', boxShadow: 'var(--shadow-sm)',
             }}>
-            <i data-lucide="star" style={{ width: 16, height: 16, color: favorite ? 'var(--warning)' : 'var(--stone-500)', fill: favorite ? 'var(--warning)' : 'none' }} />
+            {/* Inline SVG (not Lucide) so React reliably re-styles it on toggle. */}
+            <svg width="16" height="16" viewBox="0 0 24 24"
+              fill={favorite ? 'var(--warning)' : 'none'}
+              stroke={favorite ? 'var(--warning)' : 'var(--stone-500)'}
+              strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+            </svg>
           </button>
         )}
       </div>
