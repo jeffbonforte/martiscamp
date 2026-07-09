@@ -23,11 +23,12 @@ export function EditProfileDialog({ target, weekendDays, onClose, onSaved, onRel
   const [form, setForm] = React.useState(null);
   const [busy, setBusy] = React.useState(false);
   const [uploading, setUploading] = React.useState(false);
+  const [uploadErr, setUploadErr] = React.useState('');
   useLucide();
 
   React.useEffect(() => {
     if (obj) setForm({ ...obj, interests: [...(obj.interests || [])], days: [...(obj.days || [])] });
-    setBusy(false); setUploading(false);
+    setBusy(false); setUploading(false); setUploadErr('');
   }, [target]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!target || !form) return null;
@@ -38,9 +39,13 @@ export function EditProfileDialog({ target, weekendDays, onClose, onSaved, onRel
   const onFile = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    setUploadErr('');
     setUploading(true);
-    const r = await uploadPhoto(isFam ? 'cover' : 'member', file);
+    let r;
+    try { r = await uploadPhoto(isFam ? 'cover' : 'member', file); }
+    catch (err) { r = { ok: false, error: err?.message || String(err) }; }
     setUploading(false);
+    if (!r.ok && !r.offline) setUploadErr(r.error || 'Upload failed.');
     const preview = URL.createObjectURL(file);    // exact local image, shown instantly
     const value = r.ok ? r.ref : preview;         // persist the private storage ref (offline: blob)
     if (isFam) {
@@ -99,6 +104,7 @@ export function EditProfileDialog({ target, weekendDays, onClose, onSaved, onRel
                   Center
                 </button>
               </div>
+              {uploadErr && <div style={{ font: 'var(--role-small)', color: 'var(--danger)' }}>Upload failed: {uploadErr}</div>}
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
               <Input label="Street address" value={form.address || ''} onChange={(e) => set('address', e.target.value)} placeholder="One line is plenty" />
@@ -115,6 +121,7 @@ export function EditProfileDialog({ target, weekendDays, onClose, onSaved, onRel
                 <input type="file" accept="image/*" onChange={onFile} style={{ display: 'none' }} />
               </label>
             </div>
+            {uploadErr && <div style={{ font: 'var(--role-small)', color: 'var(--danger)' }}>Upload failed: {uploadErr}</div>}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
               <Input label="Name" value={form.name} onChange={(e) => set('name', e.target.value)} />
               <Input label="Role" value={form.role || ''} onChange={(e) => set('role', e.target.value)} placeholder="Parent · Kid · 14" />
