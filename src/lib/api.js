@@ -401,6 +401,11 @@ export async function persistMemberEdit(originalName, fields) {
     const rows = fields.days.map((k) => DAY_DATE[k]).filter(Boolean).map((d) => ({ member_id: m.id, family_id: m.family_id, date: d, status: 'planned' }));
     if (rows.length) await supabase.from('attendance').upsert(rows, { onConflict: 'member_id,date' });
   }
+  // Auto-approve: a family member with an email is added to the sign-in allowlist
+  // (assigned to their family), so they don't need a separate manual invite.
+  if (fields.email && fields.email.trim()) {
+    await ensureInvite(fields.email, m.family_id, await currentMemberId());
+  }
   return { ok: true };
 }
 
@@ -446,13 +451,24 @@ export async function listInvites() {
   return rows.map((r) => ({ id: r.id, email: r.email, family: r.family_id ? fams[r.family_id] : null, status: r.revoked_at ? 'revoked' : r.accepted_at ? 'accepted' : 'pending' }));
 }
 
+// Add (or re-activate) an email on the sign-in allowlist. Upserts on the unique
+// email so re-inviting a revoked/pending address works and re-assigns the
+// family, instead of colliding with the leftover row.
+async function ensureInvite(email, family_id, invited_by) {
+  const clean = (email || '').trim().toLowerCase();
+  if (!clean) return { ok: false, error: 'No email.' };
+  const patch = { email: clean, revoked_at: null };
+  if (family_id !== undefined) patch.family_id = family_id;
+  if (invited_by !== undefined) patch.invited_by = invited_by;
+  const { error } = await supabase.from('invites').upsert(patch, { onConflict: 'email' });
+  return error ? { ok: false, error: error.message } : { ok: true };
+}
+
 export async function createInvite(email, familySlug) {
   if (!isSupabaseConfigured) return { ok: false, offline: true };
   let family_id = null;
   if (familySlug) { const { data: f } = await supabase.from('families').select('id').eq('slug', familySlug).maybeSingle(); family_id = f?.id || null; }
-  const mid = await currentMemberId();
-  const { error } = await supabase.from('invites').insert({ email, family_id, invited_by: mid });
-  return error ? { ok: false, error: error.message } : { ok: true };
+  return ensureInvite(email, family_id, await currentMemberId());
 }
 
 export async function revokeInvite(id) {

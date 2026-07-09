@@ -64,6 +64,18 @@ export function DirectoryScreen({ data, favorites, onToggleFav, onOpen }) {
         )}
       </div>
 
+      {/* Request to add someone — prominent up top; common in the early days. */}
+      <div style={{ marginBottom: 'var(--space-6)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap', padding: 'var(--space-5) var(--space-6)', borderRadius: 'var(--radius-lg)', border: '1px dashed var(--border-strong)', background: 'var(--surface-sunk)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <i data-lucide="user-plus" style={{ width: 18, height: 18, color: 'var(--brand)' }} />
+          <div>
+            <div style={{ font: 'var(--fw-semibold) var(--text-sm)/1.2 var(--font-sans)', color: 'var(--text-strong)' }}>Someone missing?</div>
+            <div style={{ font: 'var(--role-small)', color: 'var(--text-muted)' }}>Request to add a neighbor or a whole family — an admin will send them an invite.</div>
+          </div>
+        </div>
+        <Button variant="secondary" onClick={() => setReqOpen(true)} iconLeft={<i data-lucide="user-plus" style={{ width: 15, height: 15 }} />}>Request to add someone</Button>
+      </div>
+
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 'var(--space-5)', flexWrap: 'wrap' }}>
         <div style={{ font: 'var(--role-h2)', color: 'var(--text-strong)' }}>All families</div>
         <SegmentedControl value={tab} onChange={setTab}
@@ -77,18 +89,6 @@ export function DirectoryScreen({ data, favorites, onToggleFav, onOpen }) {
                 favorite={favorites.has(f.id)} onToggleFavorite={() => onToggleFav(f.id)} />
             ))}
           </div>}
-
-      {/* Request to add someone */}
-      <div style={{ marginTop: 'var(--space-8)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap', padding: 'var(--space-5) var(--space-6)', borderRadius: 'var(--radius-lg)', border: '1px dashed var(--border-strong)', background: 'var(--surface-sunk)' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <i data-lucide="user-plus" style={{ width: 18, height: 18, color: 'var(--brand)' }} />
-          <div>
-            <div style={{ font: 'var(--fw-semibold) var(--text-sm)/1.2 var(--font-sans)', color: 'var(--text-strong)' }}>Someone missing?</div>
-            <div style={{ font: 'var(--role-small)', color: 'var(--text-muted)' }}>Request to add a neighbor or a whole family — an admin will send them an invite.</div>
-          </div>
-        </div>
-        <Button variant="secondary" onClick={() => setReqOpen(true)} iconLeft={<i data-lucide="user-plus" style={{ width: 15, height: 15 }} />}>Request to add someone</Button>
-      </div>
 
       <RequestAddDialog open={reqOpen} onClose={() => setReqOpen(false)} />
     </div>
