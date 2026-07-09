@@ -97,7 +97,7 @@ export function EditProfileDialog({ target, weekendDays, onClose, onSaved, onRel
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
                 <label style={uploadBtnStyle}>
                   <i data-lucide="upload" style={{ width: 14, height: 14 }} /> {uploading ? 'Uploading…' : 'Upload a cover'}
-                  <input type="file" accept="image/*" onChange={onFile} style={{ display: 'none' }} />
+                  <input type="file" accept="image/*,.jpg,.jpeg,.png,.gif,.webp,.heic,.heif" onChange={onFile} style={{ display: 'none' }} />
                 </label>
                 <button type="button" onClick={() => set('coverPos', '50% 50%')}
                   style={{ border: 'none', background: 'transparent', cursor: 'pointer', color: 'var(--text-muted)', font: 'var(--fw-semibold) var(--text-sm)/1 var(--font-sans)', padding: 4 }}>
@@ -118,7 +118,7 @@ export function EditProfileDialog({ target, weekendDays, onClose, onSaved, onRel
               <Avatar name={form.name} src={form.photoPreview || form.photo} tone={form.tone} size="lg" />
               <label style={uploadBtnStyle}>
                 <i data-lucide="upload" style={{ width: 14, height: 14 }} /> {uploading ? 'Uploading…' : 'Change photo'}
-                <input type="file" accept="image/*" onChange={onFile} style={{ display: 'none' }} />
+                <input type="file" accept="image/*,.jpg,.jpeg,.png,.gif,.webp,.heic,.heif" onChange={onFile} style={{ display: 'none' }} />
               </label>
             </div>
             {uploadErr && <div style={{ font: 'var(--role-small)', color: 'var(--danger)' }}>Upload failed: {uploadErr}</div>}

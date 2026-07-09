@@ -94,7 +94,9 @@ export function FamilyCard({
         )}
       </div>
 
-      {/* Member photo strip — overlaps the seam */}
+      {/* Member photo strip — overlaps the seam. Only when there are members;
+          otherwise the negative margin would pull the family name over the cover. */}
+      {members.length > 0 && (
       <div style={{ display: 'flex', alignItems: 'center', padding: '0 var(--space-5)', marginTop: -22, zIndex: 1 }}>
         {members.slice(0, 5).map((m, i) => (
           <MemberDot key={i} m={m} tone={tone} first={i === 0} />
@@ -107,6 +109,7 @@ export function FamilyCard({
           }}>+{members.length - 5}</span>
         )}
       </div>
+      )}
 
       {/* Body */}
       <div style={{ padding: 'var(--space-3) var(--space-5) var(--space-5)', display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
