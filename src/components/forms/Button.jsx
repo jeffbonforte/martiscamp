@@ -41,7 +41,9 @@ export function Button({
   const [hover, setHover] = React.useState(false);
   const [active, setActive] = React.useState(false);
 
-  const bg = disabled ? undefined
+  // Keep the variant background when disabled (dimmed via opacity below) —
+  // dropping it to transparent left light-on-light text that looked broken.
+  const bg = disabled ? v.background
     : active ? v['--active-bg']
     : hover ? v['--hover-bg']
     : v.background;
