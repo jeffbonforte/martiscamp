@@ -18,7 +18,7 @@ html, body { margin: 0; height: 100%; background: var(--surface-page); font-fami
 .content { flex: 1; overflow: auto; padding: var(--space-8); }
 .inner { max-width: var(--container-max); margin: 0 auto; }
 .mobile-nav { display: none; }
-.desktop-nav { display: block; }
+.desktop-nav { display: flex; }
 
 /* ---- Activity feed panel ---- */
 .feed-panel {

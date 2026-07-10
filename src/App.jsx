@@ -169,7 +169,7 @@ export function App({ onSignOut }) {
 
   return (
     <div className="shell">
-      <div className="desktop-nav" style={{ display: 'flex' }}>
+      <div className="desktop-nav">
         <Sidebar items={nav} active={route ? null : view} onSelect={go} logo={LOGO_BADGE}
           footer={<button type="button" onClick={() => go('account')} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 4px', width: '100%', border: 'none', cursor: 'pointer', borderRadius: 'var(--radius-md)', textAlign: 'left', background: (!route && view === 'account') ? 'var(--brand-soft)' : 'transparent' }}>
             <Avatar name={me.name} src={myMember && myMember.photo} size="sm" />
