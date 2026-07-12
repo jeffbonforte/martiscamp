@@ -1,5 +1,5 @@
 import React from 'react';
-import { Badge, Button, AMENITIES, VisitPill, SeasonTimeline } from '../components/index.js';
+import { Button, AMENITIES, VisitPill, SeasonTimeline } from '../components/index.js';
 import { useLucide } from '../lib/useLucide.js';
 import { PageHead, SnowReport } from './shared.jsx';
 import { MONTHS, WEEKDAYS, monthMatrix, sameDay, isSkiSeason, dateKey } from '../lib/calendar.js';
@@ -114,15 +114,6 @@ export function CalendarScreen({ data, season, favorites, onOpenEvent, onPlanVis
   ].filter((r) => r.spans.length);
   const hasTimeline = timelineRows.length > 0;
 
-  // ---- Near-term agenda (the mock 7-day window) ----
-  const agenda = data.weekendDays.map((wd) => {
-    const date = wd.date;
-    const arrivingFamilies = data.families.filter((f) => f.presence.days[0] === wd.key && f.presence.here);
-    const evs = data.events.filter((e) => { const d = evDate(e); return d && sameDay(d, wd.date); });
-    const gats = data.gatherings.filter((g) => g.day === wd.key);
-    return { wd, date, arrivingFamilies, evs, gats };
-  }).filter((row) => row.arrivingFamilies.length || row.evs.length || row.gats.length);
-
   // ---- Month view chips ----
   const chipsForDate = (date) => {
     // Official community events show on their exact date — any day, not just the
@@ -204,39 +195,6 @@ export function CalendarScreen({ data, season, favorites, onOpenEvent, onPlanVis
       )}
 
       {isSkiSeason() && <div style={{ marginBottom: 'var(--space-6)' }}><SnowReport report={data.snowReport} /></div>}
-
-      {/* Near-term agenda */}
-      <div style={{ font: 'var(--role-h2)', color: 'var(--text-strong)', marginBottom: 'var(--space-4)' }}>The next week or two</div>
-      <div style={{ background: 'var(--surface-card)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', overflow: 'hidden', marginBottom: 'var(--space-8)' }}>
-        {agenda.map((row, i) => (
-          <div key={row.wd.key} style={{ display: 'flex', gap: 'var(--space-4)', padding: 'var(--space-4) var(--space-5)', borderBottom: i < agenda.length - 1 ? '1px solid var(--divider)' : 'none' }}>
-            <div style={{ flexShrink: 0, width: 52, textAlign: 'center' }}>
-              <div style={{ font: 'var(--fw-semibold) var(--text-2xs)/1 var(--font-sans)', letterSpacing: 'var(--tracking-wide)', textTransform: 'uppercase', color: 'var(--text-muted)' }}>{row.wd.label}</div>
-              <div style={{ font: 'var(--fw-regular) var(--text-2xl)/1 var(--font-display)', color: 'var(--text-strong)' }}>{row.wd.sub}</div>
-            </div>
-            <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 6 }}>
-              {row.arrivingFamilies.map((f) => (
-                <div key={f.id} style={{ display: 'flex', alignItems: 'center', gap: 8, font: 'var(--role-small)', color: 'var(--text-body)' }}>
-                  <i data-lucide="map-pin" style={{ width: 14, height: 14, color: 'var(--success)' }} /><b style={{ fontWeight: 'var(--fw-semibold)', color: 'var(--text-strong)' }}>The {f.name}s</b> arrive
-                </div>
-              ))}
-              {row.evs.map((e, j) => (
-                <div key={'e' + j} style={{ display: 'flex', alignItems: 'center', gap: 8, font: 'var(--role-small)', color: 'var(--text-body)' }}>
-                  <span style={{ width: 8, height: 8, borderRadius: '50%', background: AMENITIES[e.amenity]?.hue || 'var(--stone-400)' }} />
-                  {e.title} <span style={{ color: 'var(--text-faint)' }}>· {e.place}</span>
-                  {e.community && <Badge tone="brand">Community</Badge>}
-                </div>
-              ))}
-              {row.gats.map((g) => (
-                <button key={g.id} type="button" onClick={() => onOpenEvent(g)} style={{ display: 'flex', alignItems: 'center', gap: 8, font: 'var(--role-small)', color: 'var(--text-body)', border: 'none', background: 'transparent', cursor: 'pointer', padding: 0, textAlign: 'left' }}>
-                  <span style={{ width: 8, height: 8, borderRadius: '50%', background: AMENITIES[g.amenity]?.hue }} />
-                  {g.title} <span style={{ color: 'var(--text-faint)' }}>· {g.when.split('·')[1]}</span>
-                </button>
-              ))}
-            </div>
-          </div>
-        ))}
-      </div>
 
       {/* Full month view — navigate up to 12 months ahead */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 'var(--space-4)', flexWrap: 'wrap' }}>
