@@ -497,6 +497,26 @@ export async function revokeInvite(id) {
   return error ? { ok: false, error: error.message } : { ok: true };
 }
 
+// Fully remove an invited person (e.g. a typo'd duplicate) — not just revoke.
+// Archives the member row(s) this invite created (same email + family) so they
+// drop out of the family everywhere (loadAppData filters archived_at IS NULL),
+// then removes the invite. Soft-deletes the member, so it's reversible in the DB.
+export async function deleteInvitee(id) {
+  if (!isSupabaseConfigured) return { ok: false, offline: true };
+  const { data: inv } = await supabase.from('invites').select('email, family_id').eq('id', id).maybeSingle();
+  if (inv && inv.email) {
+    let mq = supabase.from('members').update({ archived_at: new Date().toISOString() })
+      .eq('email', inv.email).is('archived_at', null);
+    if (inv.family_id) mq = mq.eq('family_id', inv.family_id);
+    await mq;
+  }
+  // Remove the invite entirely; if a delete policy isn't granted, fall back to
+  // revoking so sign-in is still disabled.
+  const del = await supabase.from('invites').delete().eq('id', id);
+  if (del.error) await supabase.from('invites').update({ revoked_at: new Date().toISOString() }).eq('id', id);
+  return { ok: true };
+}
+
 // --- "Request to add" queue -----------------------------------------------
 
 export async function submitAddRequest({ kind, name, email, note }) {
