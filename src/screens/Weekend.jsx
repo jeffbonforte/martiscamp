@@ -3,7 +3,7 @@ import { FamilyCard, GatheringCard, AttendancePicker, Card, Button } from '../co
 import { useLucide } from '../lib/useLucide.js';
 import { coverUrl, heroUrl, heroGradient } from '../lib/images.js';
 import { WeatherPill, SnowReport } from './shared.jsx';
-import { isSkiSeason } from '../lib/calendar.js';
+import { isSkiSeason, eventStart, isPastEvent } from '../lib/calendar.js';
 import { HomeGetStarted } from './HomeGetStarted.jsx';
 
 /** "Here now" — who is physically at the Camp today, plus what's coming up. */
@@ -18,6 +18,12 @@ export function WeekendScreen({ data, season, favorites, onOpenFamily, onEditFam
   const open = (f) => onOpenFamily && onOpenFamily(f);
   const today = data.weekendDays[0]?.date || new Date();
   const todayLabel = today.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+  // "Coming up" — the two soonest get-togethers that haven't been archived
+  // (auto-hidden 3h after they start).
+  const comingUp = data.gatherings
+    .filter((g) => !isPastEvent(g))
+    .sort((a, b) => (eventStart(a)?.getTime() ?? Infinity) - (eventStart(b)?.getTime() ?? Infinity))
+    .slice(0, 2);
   useLucide();
 
   return (
@@ -87,16 +93,20 @@ export function WeekendScreen({ data, season, favorites, onOpenFamily, onEditFam
         </>
       )}
 
-      <div style={{ font: 'var(--role-h2)', color: 'var(--text-strong)', margin: '0 0 var(--space-4)' }}>Coming up</div>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: 'var(--space-4)' }}>
-        {data.gatherings.slice(0, 2).map((g) => {
-          const my = rsvpMap[g.id] ?? g.myRsvp;
-          return (
-            <GatheringCard key={g.id} gathering={{ ...g, open: g.capacity == null, spotsLeft: g.capacity != null ? g.capacity - g.going.length : undefined, joined: my === 'going' }}
-              onRsvp={() => onOpenEvent(g)} onAddToCalendar={() => onAddCal(g)} />
-          );
-        })}
-      </div>
+      {comingUp.length > 0 && (
+        <>
+          <div style={{ font: 'var(--role-h2)', color: 'var(--text-strong)', margin: '0 0 var(--space-4)' }}>Coming up</div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: 'var(--space-4)' }}>
+            {comingUp.map((g) => {
+              const my = rsvpMap[g.id] ?? g.myRsvp;
+              return (
+                <GatheringCard key={g.id} gathering={{ ...g, open: g.capacity == null, spotsLeft: g.capacity != null ? g.capacity - g.going.length : undefined, joined: my === 'going' }}
+                  onRsvp={() => onOpenEvent(g)} onAddToCalendar={() => onAddCal(g)} />
+              );
+            })}
+          </div>
+        </>
+      )}
     </div>
   );
 }

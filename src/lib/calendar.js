@@ -122,6 +122,24 @@ export function parseWhen(when, defaultYear) {
   return dt;
 }
 
+// A get-together drops off the coming-up lists and the Get-togethers tab this
+// long after it starts, so a dinner that began at 6:30 stops reading as
+// "upcoming" by ~9:30. Pinned to the current year (no next-year roll) so a
+// past occurrence reads as past.
+export const ARCHIVE_AFTER_MS = 3 * 60 * 60 * 1000; // 3 hours
+
+/** Real start Date for a get-together / event from its `when` string. */
+export function eventStart(item, now = new Date()) {
+  return parseWhen(item && item.when, now.getFullYear());
+}
+
+/** True once an item is more than ARCHIVE_AFTER_MS past its start time. */
+export function isPastEvent(item, now = new Date()) {
+  const start = eventStart(item, now);
+  if (!start) return false; // unparseable time → never auto-hide
+  return now.getTime() - start.getTime() > ARCHIVE_AFTER_MS;
+}
+
 function toICSStamp(date) {
   // Local-time floating value (no Z) — calendars interpret in the user's tz.
   const p = (n) => String(n).padStart(2, '0');

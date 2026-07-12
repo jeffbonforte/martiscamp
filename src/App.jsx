@@ -6,6 +6,7 @@ import { LOGO_BADGE } from './lib/images.js';
 import { DATA } from './data/mockData.js';
 import { loadAppData, persistFavorite, persistRsvp } from './lib/api.js';
 import { WhatsButton, feedGlyph } from './screens/shared.jsx';
+import { isPastEvent } from './lib/calendar.js';
 
 import { WeekendScreen } from './screens/Weekend.jsx';
 import { DirectoryScreen } from './screens/Directory.jsx';
@@ -131,7 +132,7 @@ export function App({ onSignOut }) {
     { key: 'weekend', label: 'Here now', icon: 'calendar-check' },
     { key: 'directory', label: 'Directory', icon: 'users' },
     { key: 'calendar', label: 'Calendar', icon: 'calendar' },
-    { key: 'gatherings', label: 'Get-togethers', icon: 'party-popper', badge: data.gatherings.length },
+    { key: 'gatherings', label: 'Get-togethers', icon: 'party-popper', badge: data.gatherings.filter((g) => !isPastEvent(g)).length || undefined },
     { key: 'updates', label: 'Updates', icon: 'bell', badge: unread || undefined },
   ];
   if (me.isAdmin) nav.push({ key: 'admin', label: 'Admin', icon: 'shield' });
