@@ -1,18 +1,47 @@
 import React from 'react';
-import { AttendancePicker, Badge, Button, AMENITIES } from '../components/index.js';
+import { Badge, Button, AMENITIES } from '../components/index.js';
 import { useLucide } from '../lib/useLucide.js';
 import { PageHead, SnowReport } from './shared.jsx';
-import { MONTHS, WEEKDAYS, monthMatrix, sameDay, isSkiSeason } from '../lib/calendar.js';
+import { MONTHS, WEEKDAYS, monthMatrix, sameDay, isSkiSeason, dateKey } from '../lib/calendar.js';
+import { loadVisitPlan, saveVisitPlan } from '../lib/api.js';
 
 export function CalendarScreen({ data, season, favorites, onOpenEvent, onPlanVisit }) {
   const myFam = data.families.find((f) => f.id === data.me.familyId);
-  const [days, setDays] = React.useState(myFam ? myFam.presence.days : []);
   const [offset, setOffset] = React.useState(0); // months ahead of the current month (0..12)
-  const toggle = (k) => setDays((d) => (d.includes(k) ? d.filter((x) => x !== k) : [...d, k]));
+  // The family's own visit days (family-level = whole household). Click days on
+  // the grid below to toggle; persisted to the backend.
+  const [myDates, setMyDates] = React.useState(() => new Set());
   useLucide();
 
   // "Today" and the rolling window bounds, from the real calendar.
   const APP_TODAY = new Date(); APP_TODAY.setHours(0, 0, 0, 0);
+  const todayKey = dateKey(APP_TODAY);
+
+  React.useEffect(() => {
+    let alive = true;
+    loadVisitPlan().then((res) => {
+      if (!alive) return;
+      if (res) setMyDates(new Set(res.plan.family));
+      else { // mock/offline: seed from the family's window presence days
+        const iso = new Set();
+        (myFam?.presence?.days || []).forEach((k) => { const wd = data.weekendDays.find((d) => d.key === k); if (wd) iso.add(wd.iso); });
+        setMyDates(iso);
+      }
+    });
+    return () => { alive = false; };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const toggleDay = (date) => {
+    if (date < APP_TODAY) return; // can't mark past days
+    const key = dateKey(date);
+    setMyDates((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key); else next.add(key);
+      saveVisitPlan('family', [...next].filter((d) => d >= todayKey), todayKey); // persist the whole future set
+      return next;
+    });
+  };
+
   const ANCHOR_MONTH = { year: APP_TODAY.getFullYear(), month: APP_TODAY.getMonth() };
   const windowDates = data.weekendDays.map((d) => d.date);
   const winStart = windowDates[0];
@@ -80,15 +109,12 @@ export function CalendarScreen({ data, season, favorites, onOpenEvent, onPlanVis
               <i data-lucide="calendar-check" style={{ width: 18, height: 18, color: 'var(--brand)' }} />
               <span style={{ font: 'var(--role-h2)', color: 'var(--text-strong)' }}>My calendar</span>
             </div>
-            <div style={{ font: 'var(--role-small)', color: 'var(--text-muted)', marginTop: 4 }}>Mark the days the {myFam ? myFam.name : 'family'}s will be up — neighbors see when you're here. Staying for weeks? Tap a run of days.</div>
+            <div style={{ font: 'var(--role-small)', color: 'var(--text-muted)', marginTop: 4 }}>Click any day on the calendar below to mark when the {myFam ? myFam.name : 'family'}s will be up — tap again to clear. Neighbors see when you're here.</div>
           </div>
-          <span style={{ font: 'var(--fw-semibold) var(--text-sm)/1 var(--font-mono)', color: days.length ? 'var(--success)' : 'var(--text-faint)' }}>{days.length} day{days.length === 1 ? '' : 's'} marked</span>
+          <span style={{ font: 'var(--fw-semibold) var(--text-sm)/1 var(--font-mono)', color: myDates.size ? 'var(--success)' : 'var(--text-faint)' }}>{myDates.size} day{myDates.size === 1 ? '' : 's'} marked</span>
         </div>
-        <div style={{ overflowX: 'auto', paddingBottom: 4 }}>
-          <AttendancePicker days={data.weekendDays} selected={days} onToggle={toggle} />
-        </div>
-        <div style={{ marginTop: 'var(--space-4)', display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-          <Button variant="secondary" size="sm" onClick={onPlanVisit} iconLeft={<i data-lucide="calendar-range" style={{ width: 15, height: 15 }} />}>Plan further ahead</Button>
+        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+          <Button variant="ghost" size="sm" onClick={onPlanVisit} iconLeft={<i data-lucide="user" style={{ width: 15, height: 15 }} />}>Mark per person instead</Button>
         </div>
       </div>
 
@@ -173,24 +199,33 @@ export function CalendarScreen({ data, season, favorites, onOpenEvent, onPlanVis
               const chips = cell.inMonth ? chipsForDate(cell.date) : [];
               const isToday = sameDay(cell.date, APP_TODAY);
               const wx = cell.inMonth ? wxForDate(cell.date) : null;
+              const marked = cell.inMonth && myDates.has(dateKey(cell.date));
+              const markable = cell.inMonth && cell.date >= APP_TODAY;
               return (
-                <div key={ci} style={{
-                  minHeight: 92, padding: 6, borderRight: ci < 6 ? '1px solid var(--divider)' : 'none',
-                  borderBottom: wi < weeks.length - 1 ? '1px solid var(--divider)' : 'none',
-                  background: cell.inMonth ? 'var(--surface-card)' : 'var(--surface-sunk)', opacity: cell.inMonth ? 1 : 0.55,
-                }}>
+                <div key={ci}
+                  onClick={markable ? () => toggleDay(cell.date) : undefined}
+                  title={markable ? (marked ? 'Marked — click to clear' : 'Click to mark your family visiting') : undefined}
+                  style={{
+                    minHeight: 92, padding: 6, borderRight: ci < 6 ? '1px solid var(--divider)' : 'none',
+                    borderBottom: wi < weeks.length - 1 ? '1px solid var(--divider)' : 'none',
+                    cursor: markable ? 'pointer' : 'default',
+                    background: marked ? 'var(--brand-soft)' : cell.inMonth ? 'var(--surface-card)' : 'var(--surface-sunk)',
+                    boxShadow: marked ? 'inset 3px 0 0 var(--brand)' : 'none',
+                    opacity: cell.inMonth ? 1 : 0.55,
+                  }}>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
                     <span style={{
                       font: 'var(--fw-semibold) var(--text-xs)/1 var(--font-sans)',
-                      color: isToday ? 'var(--snow)' : 'var(--text-body)',
+                      color: isToday ? 'var(--snow)' : marked ? 'var(--pine-800)' : 'var(--text-body)',
                       background: isToday ? 'var(--brand)' : 'transparent', borderRadius: '50%',
                       width: 20, height: 20, display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
                     }}>{cell.date.getDate()}</span>
-                    {wx && <i data-lucide={wx.icon} style={{ width: 13, height: 13, color: 'var(--cedar-500)' }} />}
+                    {marked ? <i data-lucide="check" style={{ width: 13, height: 13, color: 'var(--brand)' }} />
+                      : wx ? <i data-lucide={wx.icon} style={{ width: 13, height: 13, color: 'var(--cedar-500)' }} /> : null}
                   </div>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
                     {chips.slice(0, 3).map((c, i) => (
-                      <button key={i} type="button" disabled={!c.gathering} onClick={() => c.gathering && onOpenEvent(c.gathering)}
+                      <button key={i} type="button" disabled={!c.gathering} onClick={(e) => { e.stopPropagation(); c.gathering && onOpenEvent(c.gathering); }}
                         style={{ display: 'flex', alignItems: 'center', gap: 4, width: '100%', textAlign: 'left', border: 'none', cursor: c.gathering ? 'pointer' : 'default',
                           padding: '2px 5px', borderRadius: 'var(--radius-sm)', background: 'var(--surface-sunk)',
                           borderLeft: `3px solid ${AMENITIES[c.amenity]?.hue || 'var(--stone-400)'}`,
