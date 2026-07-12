@@ -21,6 +21,7 @@ import { AdminScreen } from './screens/Admin.jsx';
 import { HostDialog } from './screens/dialogs/HostDialog.jsx';
 import { EditProfileDialog } from './screens/dialogs/EditProfileDialog.jsx';
 import { AddMemberDialog } from './screens/dialogs/AddMemberDialog.jsx';
+import { ToastProvider } from './lib/toast.jsx';
 import { AddToCalendarDialog } from './screens/dialogs/AddToCalendarDialog.jsx';
 
 const seasonOf = (d) => { const m = d.getMonth(); return (m <= 1 || m === 11) ? 'winter' : m <= 4 ? 'spring' : m <= 7 ? 'summer' : 'fall'; };
@@ -172,6 +173,7 @@ export function App({ onSignOut }) {
   }
 
   return (
+    <ToastProvider>
     <div className="shell">
       <div className="desktop-nav">
         <Sidebar items={nav} active={route ? null : view} onSelect={go} logo={LOGO_BADGE}
@@ -251,6 +253,7 @@ export function App({ onSignOut }) {
       <AddMemberDialog family={addMemberFor} open={!!addMemberFor} onClose={() => setAddMemberFor(null)} onCreated={reload} />
       <AddToCalendarDialog event={calEvent} onClose={() => setCalEvent(null)} />
     </div>
+    </ToastProvider>
   );
 }
 

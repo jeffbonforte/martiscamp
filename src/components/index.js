@@ -20,8 +20,13 @@ export { AttendancePicker } from './app/AttendancePicker.jsx';
 export { RsvpControl } from './app/RsvpControl.jsx';
 export { SegmentedControl } from './app/SegmentedControl.jsx';
 export { EmptyState } from './app/EmptyState.jsx';
+export { VisitPill, SeasonTimeline } from './app/VisitTimeline.jsx'; // DS v1.1
 
 export { Dialog } from './feedback/Dialog.jsx';
 export { Tooltip } from './feedback/Tooltip.jsx';
+export { Toast, ToastStack } from './feedback/Toast.jsx'; // DS v1.1
+export { ActivityFeed } from './feedback/ActivityFeed.jsx'; // DS v1.1
 
 export { Sidebar } from './navigation/Sidebar.jsx';
+export { Tabs } from './navigation/Tabs.jsx'; // DS v1.1
+export { BottomTabBar } from './navigation/BottomTabBar.jsx'; // DS v1.1

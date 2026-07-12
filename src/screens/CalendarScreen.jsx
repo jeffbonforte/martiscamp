@@ -4,10 +4,12 @@ import { useLucide } from '../lib/useLucide.js';
 import { PageHead, SnowReport } from './shared.jsx';
 import { MONTHS, WEEKDAYS, monthMatrix, sameDay, isSkiSeason, dateKey } from '../lib/calendar.js';
 import { loadVisitPlan, saveVisitPlan } from '../lib/api.js';
+import { useToast } from '../lib/toast.jsx';
 
 export function CalendarScreen({ data, season, favorites, onOpenEvent, onPlanVisit }) {
   const myFam = data.families.find((f) => f.id === data.me.familyId);
   const [offset, setOffset] = React.useState(0); // months ahead of the current month (0..12)
+  const { push } = useToast();
   // The family's own visit days (family-level = whole household). Click days on
   // the grid below to toggle; persisted to the backend.
   const [myDates, setMyDates] = React.useState(() => new Set());
@@ -34,12 +36,13 @@ export function CalendarScreen({ data, season, favorites, onOpenEvent, onPlanVis
   const toggleDay = (date) => {
     if (date < APP_TODAY) return; // can't mark past days
     const key = dateKey(date);
-    setMyDates((prev) => {
-      const next = new Set(prev);
-      if (next.has(key)) next.delete(key); else next.add(key);
-      saveVisitPlan('family', [...next].filter((d) => d >= todayKey), todayKey); // persist the whole future set
-      return next;
-    });
+    const wasMarked = myDates.has(key);
+    const next = new Set(myDates);
+    if (wasMarked) next.delete(key); else next.add(key);
+    setMyDates(next);
+    saveVisitPlan('family', [...next].filter((d) => d >= todayKey), todayKey); // persist the whole future set
+    const label = date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+    push({ icon: 'calendar-check', tone: 'success', title: wasMarked ? `Cleared ${label}` : `Marked ${label}`, message: wasMarked ? 'Removed from your visit.' : 'Neighbors can see your visit.' });
   };
 
   const ANCHOR_MONTH = { year: APP_TODAY.getFullYear(), month: APP_TODAY.getMonth() };
