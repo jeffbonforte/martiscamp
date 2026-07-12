@@ -8,7 +8,12 @@ import { useToast } from '../lib/toast.jsx';
 
 const DAY_MS = 86400000;
 const mdShort = (d) => d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-const fmtRange = (a, b) => (sameDay(a, b) ? mdShort(a) : `${mdShort(a)} – ${mdShort(b)}`);
+const fmtRange = (a, b) => {
+  if (sameDay(a, b)) return mdShort(a);
+  // Same month → collapse to "Jul 11–12"; otherwise "Jul 11 – Aug 3".
+  if (a.getMonth() === b.getMonth() && a.getFullYear() === b.getFullYear()) return `${mdShort(a)}–${b.getDate()}`;
+  return `${mdShort(a)} – ${mdShort(b)}`;
+};
 const spanLen = (s) => { const n = Math.round((+s.end - +s.start) / DAY_MS) + 1; return `${n} day${n === 1 ? '' : 's'}`; };
 // Collapse a set of dates into contiguous [start, end] spans (both inclusive).
 function contiguousSpans(dates) {

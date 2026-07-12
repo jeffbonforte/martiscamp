@@ -10,11 +10,12 @@ export function VisitPill({ range, length, style = {} }) {
   return (
     <span style={{
       display: 'inline-flex', alignItems: 'center', gap: 7, padding: '6px 12px',
-      borderRadius: 'var(--radius-pill)', background: 'var(--brand-soft)', color: 'var(--pine-800)', ...style,
+      borderRadius: 'var(--radius-pill)', background: 'var(--brand-soft)', color: 'var(--pine-800)',
+      whiteSpace: 'nowrap', maxWidth: '100%', ...style,
     }}>
-      <i data-lucide="calendar-range" style={{ width: 14, height: 14 }} />
-      <span style={{ font: 'var(--fw-medium) var(--text-xs)/1 var(--font-mono)' }}>{range}</span>
-      {length ? <span style={{ font: 'var(--fw-regular) var(--text-xs)/1 var(--font-sans)', color: 'var(--pine-600)' }}>· {length}</span> : null}
+      <i data-lucide="calendar-range" style={{ width: 14, height: 14, flexShrink: 0 }} />
+      <span style={{ font: 'var(--fw-medium) var(--text-xs)/1 var(--font-mono)', whiteSpace: 'nowrap' }}>{range}</span>
+      {length ? <span style={{ font: 'var(--fw-regular) var(--text-xs)/1 var(--font-sans)', color: 'var(--pine-600)', whiteSpace: 'nowrap' }}>· {length}</span> : null}
     </span>
   );
 }
