@@ -20,7 +20,7 @@ export function FamilyProfileScreen({ family, data, favorites, onToggleFav, canE
 
       {/* Cover */}
       <div style={{ position: 'relative', borderRadius: 'var(--radius-xl)', overflow: 'hidden', boxShadow: 'var(--shadow-md)', marginBottom: 'var(--space-6)', background: `color-mix(in srgb, ${family.tone} 30%, var(--pine-900))`, minHeight: 240 }}>
-        <img src={coverUrl(family.cover || 'lodge.jpg')} alt=""
+        <img src={coverUrl(family.cover || 'venue-clubhouse-summer.jpg')} alt=""
           onError={(e) => { e.currentTarget.style.opacity = '0'; }} onLoad={(e) => { e.currentTarget.style.opacity = '1'; }}
           style={{ position: 'absolute', inset: 0, width: '100%', height: 240, objectFit: 'cover', objectPosition: family.coverPos || 'center 55%', display: 'block' }} />
         <div style={{ position: 'absolute', inset: 0, height: 240, background: 'linear-gradient(to top, rgba(20,15,10,.8) 0%, rgba(20,15,10,.2) 46%, rgba(20,15,10,0) 72%)' }} />

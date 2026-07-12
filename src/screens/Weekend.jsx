@@ -1,7 +1,7 @@
 import React from 'react';
-import { FamilyCard, GatheringCard, AttendancePicker, Card, Button } from '../components/index.js';
+import { FamilyCard, GatheringCard, AttendancePicker, Card, Button, HeroPhoto } from '../components/index.js';
 import { useLucide } from '../lib/useLucide.js';
-import { coverUrl, heroUrl, heroGradient } from '../lib/images.js';
+import { coverUrl } from '../lib/images.js';
 import { WeatherPill, SnowReport } from './shared.jsx';
 import { isSkiSeason, eventStart, isPastEvent } from '../lib/calendar.js';
 import { HomeGetStarted } from './HomeGetStarted.jsx';
@@ -33,22 +33,17 @@ export function WeekendScreen({ data, season, favorites, onOpenFamily, onEditFam
       <HomeGetStarted family={myFam} favCount={famFavCount}
         onEditFamily={onEditFamily} onAddMember={onAddMember} onGoCalendar={onGoCalendar} onGoDirectory={onGoDirectory} />
 
-      {/* Hero */}
-      <div style={{ position: 'relative', borderRadius: 'var(--radius-xl)', overflow: 'hidden', marginBottom: 'var(--space-6)', boxShadow: 'var(--shadow-md)', background: heroGradient(season), minHeight: 280 }}>
-        <img src={heroUrl(season)} alt="" onError={(e) => { e.currentTarget.style.display = 'none'; }}
-          style={{ position: 'absolute', inset: 0, width: '100%', height: 280, objectFit: 'cover', objectPosition: 'center 62%', display: 'block' }} />
-        <div style={{ position: 'absolute', inset: 0, height: 280, background: 'linear-gradient(to top, rgba(20,15,10,.72) 0%, rgba(20,15,10,.18) 42%, rgba(20,15,10,0) 70%)' }} />
-        <div style={{ position: 'relative', height: 280 }}>
-          <div style={{ position: 'absolute', left: 0, right: 0, bottom: 0, padding: 'var(--space-6) var(--space-8)' }}>
-            <div style={{ font: 'var(--role-eyebrow)', letterSpacing: 'var(--tracking-wider)', textTransform: 'uppercase', color: 'rgba(255,255,255,.85)', marginBottom: 6 }}>Right now at the Camp · {todayLabel}</div>
-            <div className="hero-title" style={{ font: 'var(--fw-regular) var(--text-5xl)/1 var(--font-display)', color: '#fff', letterSpacing: 'var(--tracking-tight)' }}>Who's here now</div>
-            <div style={{ font: 'var(--role-body)', color: 'rgba(255,255,255,.9)', marginTop: 8 }}>{here.length === 0 ? 'No families are up at Martis Camp right now' : here.length === 1 ? '1 family is up at Martis Camp' : `${here.length} families are up at Martis Camp`}</div>
-          </div>
-          <div style={{ position: 'absolute', top: 'var(--space-5)', right: 'var(--space-6)' }}>
-            <Button iconLeft={<i data-lucide="plus" style={{ width: 16, height: 16 }} />} onClick={onPlan}>Host a get-together</Button>
-          </div>
+      {/* Hero — rotates through season-appropriate brand photos */}
+      <HeroPhoto season={season}>
+        <div style={{ position: 'absolute', left: 0, right: 0, bottom: 0, padding: 'var(--space-6) var(--space-8)' }}>
+          <div style={{ font: 'var(--role-eyebrow)', letterSpacing: 'var(--tracking-wider)', textTransform: 'uppercase', color: 'rgba(255,255,255,.85)', marginBottom: 6 }}>Right now at the Camp · {todayLabel}</div>
+          <div className="hero-title" style={{ font: 'var(--fw-regular) var(--text-5xl)/1 var(--font-display)', color: '#fff', letterSpacing: 'var(--tracking-tight)' }}>Who's here now</div>
+          <div style={{ font: 'var(--role-body)', color: 'rgba(255,255,255,.9)', marginTop: 8 }}>{here.length === 0 ? 'No families are up at Martis Camp right now' : here.length === 1 ? '1 family is up at Martis Camp' : `${here.length} families are up at Martis Camp`}</div>
         </div>
-      </div>
+        <div style={{ position: 'absolute', top: 'var(--space-5)', right: 'var(--space-6)' }}>
+          <Button iconLeft={<i data-lucide="plus" style={{ width: 16, height: 16 }} />} onClick={onPlan}>Host a get-together</Button>
+        </div>
+      </HeroPhoto>
 
       {isSkiSeason() && <div style={{ marginBottom: 'var(--space-6)' }}><SnowReport report={data.snowReport} /></div>}
 

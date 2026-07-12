@@ -9,7 +9,7 @@ const AMENITY_KEYS = Object.keys(AMENITIES);
 // Shared, generic Martis Camp scenery only — NEVER any family's personal photo.
 // A family's own photo comes solely from their private "Upload a cover" (which
 // is not shared with, or visible to, other families).
-const COVER_OPTIONS = ['lodge.jpg', 'ski-lodge.jpg', 'family-barn.jpg', 'treehouse-park.jpg', 'golf-summer.jpg', 'camp-lodge-winter-aerial.jpg'];
+const COVER_OPTIONS = ['venue-clubhouse-summer.jpg', 'activity-skiing-winter.jpg', 'venue-family_barn-summer.jpg', 'venue-treehouse_park-summer.jpg', 'activity-golf-summer.jpg', 'hero-camp_aerial-winter.jpg', 'hero-snowy_meadow-winter.jpg', 'hero-autumn_lodge-fall.jpg'];
 
 /**
  * Edit a family or a member. Matches the prototype: writes back onto the data
