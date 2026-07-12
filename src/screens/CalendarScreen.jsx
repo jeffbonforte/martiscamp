@@ -63,7 +63,7 @@ export function CalendarScreen({ data, season, favorites, onOpenEvent, onPlanVis
     setMyDates(next);
     saveVisitPlan('family', [...next].filter((d) => d >= todayKey), todayKey); // persist the whole future set
     const label = date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
-    push({ icon: 'calendar-check', tone: 'success', title: wasMarked ? `Cleared ${label}` : `Marked ${label}`, message: wasMarked ? 'Removed from your visit.' : 'Neighbors can see your visit.' });
+    push({ icon: 'calendar-check', tone: 'success', title: wasMarked ? `Cleared ${label}` : `Marked ${label}`, message: wasMarked ? 'Removed from your visit.' : 'Other families can see your visit.' });
   };
 
   const ANCHOR_MONTH = { year: APP_TODAY.getFullYear(), month: APP_TODAY.getMonth() };
@@ -155,7 +155,7 @@ export function CalendarScreen({ data, season, favorites, onOpenEvent, onPlanVis
               <i data-lucide="calendar-check" style={{ width: 18, height: 18, color: 'var(--brand)' }} />
               <span style={{ font: 'var(--role-h2)', color: 'var(--text-strong)' }}>My calendar</span>
             </div>
-            <div style={{ font: 'var(--role-small)', color: 'var(--text-muted)', marginTop: 4 }}>Click any day on the calendar below to mark when the {myFam ? myFam.name : 'family'}s will be up — tap again to clear. Neighbors see when you're here.</div>
+            <div style={{ font: 'var(--role-small)', color: 'var(--text-muted)', marginTop: 4 }}>Click any day on the calendar below to mark when the {myFam ? myFam.name : 'family'}s will be up — tap again to clear. Other families see when you're here.</div>
           </div>
           <span style={{ font: 'var(--fw-semibold) var(--text-sm)/1 var(--font-mono)', color: myDates.size ? 'var(--success)' : 'var(--text-faint)' }}>{myDates.size} day{myDates.size === 1 ? '' : 's'} marked</span>
         </div>

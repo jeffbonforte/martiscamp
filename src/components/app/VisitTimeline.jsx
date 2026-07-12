@@ -65,7 +65,7 @@ export function SeasonTimeline({ months = [], rows = [], today, style = {} }) {
         <div />
         <div style={{ display: 'flex', gap: 'var(--space-4)', alignItems: 'center', font: 'var(--fw-regular) var(--text-2xs)/1 var(--font-sans)', color: 'var(--text-faint)' }}>
           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}><span style={{ width: 14, height: 8, borderRadius: 'var(--radius-pill)', background: 'var(--pine-700)', display: 'inline-block' }} />Your visits</span>
-          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}><span style={{ width: 14, height: 8, borderRadius: 'var(--radius-pill)', background: 'var(--pine-300)', display: 'inline-block' }} />Neighbors</span>
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}><span style={{ width: 14, height: 8, borderRadius: 'var(--radius-pill)', background: 'var(--pine-300)', display: 'inline-block' }} />Other families</span>
           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}><span style={{ width: 2, height: 10, background: 'var(--cedar-500)', display: 'inline-block' }} />Today</span>
         </div>
       </div>

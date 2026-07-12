@@ -69,7 +69,7 @@ export function WeekendScreen({ data, season, favorites, onOpenFamily, onEditFam
       <Card style={{ marginBottom: 'var(--space-8)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 24, flexWrap: 'wrap' }}>
         <div>
           <div style={{ font: 'var(--role-h3)', color: 'var(--text-strong)' }}>Mark your days</div>
-          <div style={{ font: 'var(--role-small)', color: 'var(--text-muted)', marginTop: 2 }}>Let neighbors know when {myFam ? `the ${myFam.name}s` : 'you'} will be up.</div>
+          <div style={{ font: 'var(--role-small)', color: 'var(--text-muted)', marginTop: 2 }}>Let other families know when {myFam ? `the ${myFam.name}s` : 'you'} will be up.</div>
         </div>
         <AttendancePicker days={data.weekendDays} selected={days} onToggle={toggle} />
       </Card>

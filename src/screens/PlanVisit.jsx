@@ -78,7 +78,7 @@ export function PlanVisit({ data, onBack }) {
       </button>
 
       <PageHead eyebrow="Plan ahead" title="Plan a visit"
-        sub="Tap the days you'll be up — up to a year out. Neighbors see who's here on any future date." />
+        sub="Tap the days you'll be up — up to a year out. Other families see who's here on any future date." />
 
       {/* Scope + summary */}
       <div style={{ position: 'sticky', top: 0, zIndex: 10, background: 'var(--surface-page)', paddingBottom: 'var(--space-4)', marginBottom: 'var(--space-4)', borderBottom: '1px solid var(--divider)' }}>

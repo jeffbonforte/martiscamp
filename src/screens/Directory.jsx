@@ -70,7 +70,7 @@ export function DirectoryScreen({ data, favorites, onToggleFav, onOpen }) {
           <i data-lucide="user-plus" style={{ width: 18, height: 18, color: 'var(--brand)' }} />
           <div>
             <div style={{ font: 'var(--fw-semibold) var(--text-sm)/1.2 var(--font-sans)', color: 'var(--text-strong)' }}>Someone missing?</div>
-            <div style={{ font: 'var(--role-small)', color: 'var(--text-muted)' }}>Request to add a neighbor or a whole family — an admin will send them an invite.</div>
+            <div style={{ font: 'var(--role-small)', color: 'var(--text-muted)' }}>Request to add a person or a whole family — an admin will send them an invite.</div>
           </div>
         </div>
         <Button variant="secondary" onClick={() => setReqOpen(true)} iconLeft={<i data-lucide="user-plus" style={{ width: 15, height: 15 }} />}>Request to add someone</Button>
