@@ -6,11 +6,14 @@ import { WeatherPill, SnowReport } from './shared.jsx';
 import { isSkiSeason } from '../lib/calendar.js';
 
 /** "Here now" — who is physically at the Camp today, plus what's coming up. */
-export function WeekendScreen({ data, season, rsvpMap = {}, onPlan, onOpenEvent, onAddCal }) {
+export function WeekendScreen({ data, season, favorites, onOpenFamily, rsvpMap = {}, onPlan, onOpenEvent, onAddCal }) {
   const myFam = data.families.find((f) => f.id === data.me?.familyId) || data.families[0];
   const [days, setDays] = React.useState(myFam ? myFam.presence.days : []);
   const toggle = (k) => setDays((d) => (d.includes(k) ? d.filter((x) => x !== k) : [...d, k]));
   const here = data.families.filter((f) => f.presence.here);
+  const favHere = here.filter((f) => favorites?.has(f.id));
+  const otherHere = favHere.length ? here.filter((f) => !favorites?.has(f.id)) : here;
+  const open = (f) => onOpenFamily && onOpenFamily(f);
   const today = data.weekendDays[0]?.date || new Date();
   const todayLabel = today.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
   useLucide();
@@ -58,10 +61,26 @@ export function WeekendScreen({ data, season, rsvpMap = {}, onPlan, onOpenEvent,
         <AttendancePicker days={data.weekendDays} selected={days} onToggle={toggle} />
       </Card>
 
-      <div style={{ font: 'var(--role-h2)', color: 'var(--text-strong)', margin: '0 0 var(--space-4)' }}>Here now</div>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 'var(--space-4)', marginBottom: 'var(--space-8)' }}>
-        {here.map((f) => <FamilyCard key={f.name} family={f} cover={coverUrl(f.cover)} />)}
-      </div>
+      {favHere.length > 0 && (
+        <>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, margin: '0 0 var(--space-4)' }}>
+            <i data-lucide="star" style={{ width: 18, height: 18, color: 'var(--warning)', fill: 'var(--warning)' }} />
+            <span style={{ font: 'var(--role-h2)', color: 'var(--text-strong)' }}>Your favorites, here now</span>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 'var(--space-4)', marginBottom: 'var(--space-8)' }}>
+            {favHere.map((f) => <FamilyCard key={f.name} family={f} cover={coverUrl(f.cover)} onOpen={() => open(f)} />)}
+          </div>
+        </>
+      )}
+
+      {otherHere.length > 0 && (
+        <>
+          <div style={{ font: 'var(--role-h2)', color: 'var(--text-strong)', margin: '0 0 var(--space-4)' }}>{favHere.length ? 'Also here now' : 'Here now'}</div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 'var(--space-4)', marginBottom: 'var(--space-8)' }}>
+            {otherHere.map((f) => <FamilyCard key={f.name} family={f} cover={coverUrl(f.cover)} onOpen={() => open(f)} />)}
+          </div>
+        </>
+      )}
 
       <div style={{ font: 'var(--role-h2)', color: 'var(--text-strong)', margin: '0 0 var(--space-4)' }}>Coming up</div>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: 'var(--space-4)' }}>
