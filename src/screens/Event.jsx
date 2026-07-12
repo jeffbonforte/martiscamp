@@ -3,7 +3,15 @@ import { Avatar, AmenityTag, Button, Card, RsvpControl, Input } from '../compone
 import { useLucide } from '../lib/useLucide.js';
 import { activityImage } from '../lib/images.js';
 import { loadComments, addComment } from '../lib/api.js';
+import { useToast } from '../lib/toast.jsx';
 import { WhatsButton } from './shared.jsx';
+
+// RSVP → toast confirmation (DS v1.1). null = toggled off.
+const RSVP_TOAST = {
+  going: { icon: 'party-popper', tone: 'success', title: "You're in", message: 'Your RSVP is shared with the host.' },
+  maybe: { icon: 'help-circle', tone: 'warning', title: 'Marked as maybe', message: "We'll keep your spot loose." },
+  declined: { icon: 'x', tone: 'danger', title: "Can't make it", message: 'The host has been notified.' },
+};
 
 /** Get-together detail: hero, RSVP, auto-collected contacts, comments, WhatsApp. */
 export function EventScreen({ event, data, myRsvp, onRsvp, onBack, onAddCal }) {
@@ -13,7 +21,14 @@ export function EventScreen({ event, data, myRsvp, onRsvp, onBack, onAddCal }) {
   const [comments, setComments] = React.useState([]);
   const [newComment, setNewComment] = React.useState('');
   const [posting, setPosting] = React.useState(false);
+  const { push } = useToast();
   useLucide();
+
+  const handleRsvp = (v) => {
+    onRsvp(v);
+    const t = v ? RSVP_TOAST[v] : { icon: 'calendar-x', tone: 'info', title: 'RSVP cleared', message: `Removed from ${event.title}.` };
+    if (t) push(t);
+  };
 
   React.useEffect(() => {
     let alive = true;
@@ -94,7 +109,7 @@ export function EventScreen({ event, data, myRsvp, onRsvp, onBack, onAddCal }) {
 
           <Card style={{ marginTop: 'var(--space-6)' }}>
             <div style={{ font: 'var(--role-h3)', color: 'var(--text-strong)', marginBottom: 'var(--space-4)' }}>Are you coming?</div>
-            <RsvpControl value={myRsvp} onChange={onRsvp} block size="md" />
+            <RsvpControl value={myRsvp} onChange={handleRsvp} block size="md" />
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 'var(--space-4)', font: 'var(--role-small)', color: 'var(--text-muted)', flexWrap: 'wrap' }}>
               <i data-lucide="users" style={{ width: 15, height: 15 }} /> {lists.going.length} attending{event.capacity ? ` · ${Math.max(event.capacity - lists.going.length, 0)} spots left` : ''}
               <span style={{ display: 'flex', gap: 8, marginLeft: 'auto' }}>

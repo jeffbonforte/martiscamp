@@ -7,13 +7,22 @@ import { useLucide } from '../../lib/useLucide.js';
  * belong in WhatsApp; this surfaces who joined your gathering, whose visit
  * overlaps yours. items: [{ id, avatar?, actor, text, when, unread? }]
  */
-export function ActivityFeed({ items = [], whatsappHref, style = {} }) {
+export function ActivityFeed({ items = [], whatsappHref, onItemClick, style = {} }) {
   useLucide();
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)', ...style }}>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
-        {items.map((n) => (
-          <div key={n.id} style={{ display: 'flex', gap: 'var(--space-3)', alignItems: 'flex-start' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-1)' }}>
+        {items.map((n) => {
+          const clickable = typeof onItemClick === 'function';
+          const Row = clickable ? 'button' : 'div';
+          return (
+          <Row key={n.id} type={clickable ? 'button' : undefined} onClick={clickable ? () => onItemClick(n) : undefined}
+            style={{
+              display: 'flex', gap: 'var(--space-3)', alignItems: 'flex-start', width: '100%', textAlign: 'left',
+              border: 'none', background: 'transparent', font: 'inherit',
+              cursor: clickable ? 'pointer' : 'default', borderRadius: 'var(--radius-md)',
+              padding: clickable ? 'var(--space-3)' : '0', margin: clickable ? '0 calc(-1 * var(--space-3))' : '0',
+            }}>
             <Avatar name={n.actor} src={n.avatar} tone={n.tone} size="sm" />
             <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 3 }}>
               <div style={{ font: 'var(--fw-regular) var(--text-sm)/1.5 var(--font-sans)', color: 'var(--text-body)' }}>
@@ -24,8 +33,8 @@ export function ActivityFeed({ items = [], whatsappHref, style = {} }) {
             {n.unread ? (
               <span aria-label="Unread" style={{ width: 7, height: 7, borderRadius: '50%', background: 'var(--brand)', flexShrink: 0, marginTop: 6 }} />
             ) : null}
-          </div>
-        ))}
+          </Row>
+        );})}
       </div>
       {whatsappHref ? (
         <a href={whatsappHref} style={{

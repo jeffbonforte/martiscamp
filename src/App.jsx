@@ -1,5 +1,5 @@
 import React from 'react';
-import { Sidebar, Avatar } from './components/index.js';
+import { Sidebar, Avatar, BottomTabBar } from './components/index.js';
 import { useLucide } from './lib/useLucide.js';
 import { useWeather } from './lib/weather.js';
 import { LOGO_BADGE } from './lib/images.js';
@@ -238,15 +238,13 @@ export function App({ onSignOut }) {
         )}
       </div>
 
-      {/* Mobile bottom tab bar */}
-      <nav className="mobile-nav tabbar">
-        {nav.map((it) => (
-          <button key={it.key} type="button" data-on={!route && view === it.key} onClick={() => go(it.key)}>
-            <i data-lucide={it.icon} style={{ width: 22, height: 22 }} />
-            <span>{it.label.split(' ')[0]}</span>
-          </button>
-        ))}
-      </nav>
+      {/* Mobile bottom tab bar — DS v1.1 BottomTabBar */}
+      <div className="mobile-nav" style={{ position: 'fixed', left: 0, right: 0, bottom: 0, zIndex: 250 }}>
+        <BottomTabBar
+          items={nav.map((it) => ({ id: it.key, label: it.label.split(' ')[0], icon: it.icon }))}
+          active={route ? null : view} onChange={go}
+          style={{ width: '100%', background: 'color-mix(in srgb, var(--surface-card) 92%, transparent)' }} />
+      </div>
 
       <HostDialog open={planOpen} data={data} initialType={postType} onClose={() => setPlanOpen(false)} onCreated={reload} />
       <EditProfileDialog target={editTarget} weekendDays={data.weekendDays} onClose={() => setEditTarget(null)} onSaved={bump} onReload={reload} />

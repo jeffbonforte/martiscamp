@@ -1,10 +1,26 @@
 import React from 'react';
-import { Badge, Button, AMENITIES } from '../components/index.js';
+import { Badge, Button, AMENITIES, VisitPill, SeasonTimeline } from '../components/index.js';
 import { useLucide } from '../lib/useLucide.js';
 import { PageHead, SnowReport } from './shared.jsx';
 import { MONTHS, WEEKDAYS, monthMatrix, sameDay, isSkiSeason, dateKey } from '../lib/calendar.js';
 import { loadVisitPlan, saveVisitPlan } from '../lib/api.js';
 import { useToast } from '../lib/toast.jsx';
+
+const DAY_MS = 86400000;
+const mdShort = (d) => d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+const fmtRange = (a, b) => (sameDay(a, b) ? mdShort(a) : `${mdShort(a)} – ${mdShort(b)}`);
+const spanLen = (s) => { const n = Math.round((+s.end - +s.start) / DAY_MS) + 1; return `${n} day${n === 1 ? '' : 's'}`; };
+// Collapse a set of dates into contiguous [start, end] spans (both inclusive).
+function contiguousSpans(dates) {
+  const ts = [...new Set(dates.map((d) => { const x = new Date(d); x.setHours(0, 0, 0, 0); return +x; }))].sort((a, b) => a - b);
+  const spans = [];
+  for (const t of ts) {
+    const last = spans[spans.length - 1];
+    if (last && t - last.endT === DAY_MS) last.endT = t;
+    else spans.push({ startT: t, endT: t });
+  }
+  return spans.map((s) => ({ start: new Date(s.startT), end: new Date(s.endT) }));
+}
 
 export function CalendarScreen({ data, season, favorites, onOpenEvent, onPlanVisit }) {
   const myFam = data.families.find((f) => f.id === data.me.familyId);
@@ -60,9 +76,10 @@ export function CalendarScreen({ data, season, favorites, onOpenEvent, onPlanVis
   const favMembers = [];
   data.families.forEach((f) => f.members.forEach((m) => { if (favorites.has('m:' + m.name)) favMembers.push({ ...m, family: f }); }));
   const nextArrival = (dayKeys) => {
-    const dates = (dayKeys || []).map(dayKeyDate).filter(Boolean).sort((a, b) => a - b);
-    const upcoming = dates.filter((d) => d >= APP_TODAY);
-    return { first: (upcoming[0] || dates[0]) || null, count: dates.length };
+    const dates = (dayKeys || []).map(dayKeyDate).filter(Boolean);
+    const spans = contiguousSpans(dates);
+    const s = spans.find((sp) => sp.end >= APP_TODAY) || spans[0] || null;
+    return { first: s ? s.start : null, count: dates.length, range: s ? fmtRange(s.start, s.end) : null, length: s ? spanLen(s) : null };
   };
   const fmtDate = (d) => (d ? d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }) : null);
 
@@ -70,6 +87,27 @@ export function CalendarScreen({ data, season, favorites, onOpenEvent, onPlanVis
     ...favFamilies.map((f) => ({ key: 'f:' + f.id, name: `The ${f.name}s`, tone: f.tone, ...nextArrival(f.presence.days), family: f })),
     ...favMembers.map((m) => ({ key: 'm:' + m.name, name: m.name, tone: m.tone, ...nextArrival(m.days), family: m.family })),
   ].filter((a) => a.first).sort((a, b) => a.first - b.first);
+
+  // ---- Season at a glance (DS v1.1 SeasonTimeline) ----
+  // A fixed 4-month window from the current month; each family's marked days
+  // collapse into contiguous ranges laid out across it.
+  const seasonStart = new Date(APP_TODAY.getFullYear(), APP_TODAY.getMonth(), 1);
+  const seasonEnd = new Date(APP_TODAY.getFullYear(), APP_TODAY.getMonth() + 4, 1); // exclusive
+  const seasonWidth = +seasonEnd - +seasonStart;
+  const frac = (d) => Math.max(0, Math.min(1, (+d - +seasonStart) / seasonWidth));
+  const seasonMonths = [0, 1, 2, 3].map((i) => MONTHS[(APP_TODAY.getMonth() + i) % 12].slice(0, 3));
+  const toTimelineRow = (name, dates, you) => ({
+    name, you,
+    spans: contiguousSpans(dates)
+      .map((s) => ({ start: frac(s.start), end: frac(new Date(+s.end + DAY_MS)), label: fmtRange(s.start, s.end) }))
+      .filter((s) => s.end > 0.001 && s.start < 0.999),
+  });
+  const myDatesArr = [...myDates].map((k) => new Date(k + 'T00:00:00'));
+  const timelineRows = [
+    toTimelineRow(myFam ? `The ${myFam.name}s (you)` : 'You', myDatesArr, true),
+    ...favFamilies.map((f) => toTimelineRow(`The ${f.name}s`, (f.presence.days || []).map(dayKeyDate).filter(Boolean), false)),
+  ].filter((r) => r.spans.length);
+  const hasTimeline = timelineRows.length > 0;
 
   // ---- Near-term agenda (the mock 7-day window) ----
   const agenda = data.weekendDays.map((wd) => {
@@ -139,12 +177,25 @@ export function CalendarScreen({ data, season, favorites, onOpenEvent, onPlanVis
                 <i data-lucide="map-pin" style={{ width: 18, height: 18 }} />
               </span>
               <div style={{ minWidth: 0 }}>
-                <div style={{ font: 'var(--fw-semibold) var(--text-sm)/1.15 var(--font-sans)', color: 'var(--text-strong)' }}>{a.name}</div>
-                <div style={{ font: 'var(--role-small)', color: 'var(--text-muted)', marginTop: 2 }}>Next up {fmtDate(a.first)} · {a.count} day{a.count === 1 ? '' : 's'}</div>
+                <div style={{ font: 'var(--fw-semibold) var(--text-sm)/1.15 var(--font-sans)', color: 'var(--text-strong)', marginBottom: 6 }}>{a.name}</div>
+                {a.range ? <VisitPill range={a.range} length={a.length} /> : <div style={{ font: 'var(--role-small)', color: 'var(--text-muted)' }}>Next up {fmtDate(a.first)}</div>}
               </div>
             </button>
           ))}
         </div>
+      )}
+
+      {/* Season at a glance — DS v1.1 SeasonTimeline */}
+      {hasTimeline && (
+        <>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 'var(--space-4)' }}>
+            <i data-lucide="calendar-range" style={{ width: 16, height: 16, color: 'var(--brand)' }} />
+            <span style={{ font: 'var(--role-h2)', color: 'var(--text-strong)' }}>Season at a glance</span>
+          </div>
+          <div style={{ background: 'var(--surface-card)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-sm)', padding: 'var(--space-5) var(--space-6)', marginBottom: 'var(--space-8)', overflowX: 'auto' }}>
+            <SeasonTimeline months={seasonMonths} rows={timelineRows} today={frac(APP_TODAY)} style={{ minWidth: 480 }} />
+          </div>
+        </>
       )}
 
       {isSkiSeason() && <div style={{ marginBottom: 'var(--space-6)' }}><SnowReport report={data.snowReport} /></div>}
