@@ -12,9 +12,11 @@ export function WeekendScreen({ data, season, favorites, onOpenFamily, onEditFam
   const famFavCount = [...(favorites || [])].filter((k) => !String(k).startsWith('m:')).length;
   const [days, setDays] = React.useState(myFam ? myFam.presence.days : []);
   const toggle = (k) => setDays((d) => (d.includes(k) ? d.filter((x) => x !== k) : [...d, k]));
-  const here = data.families.filter((f) => f.presence.here);
-  const favHere = here.filter((f) => favorites?.has(f.id));
-  const otherHere = favHere.length ? here.filter((f) => !favorites?.has(f.id)) : here;
+  const here = data.families.filter((f) => f.presence.here); // camp-wide count (includes your own family)
+  // ...but the browsable cards are about *other* families — never list your own.
+  const hereOthers = here.filter((f) => f.id !== data.me?.familyId);
+  const favHere = hereOthers.filter((f) => favorites?.has(f.id));
+  const otherHere = favHere.length ? hereOthers.filter((f) => !favorites?.has(f.id)) : hereOthers;
   const open = (f) => onOpenFamily && onOpenFamily(f);
   const today = data.weekendDays[0]?.date || new Date();
   const todayLabel = today.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
