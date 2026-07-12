@@ -4,10 +4,12 @@ import { useLucide } from '../lib/useLucide.js';
 import { coverUrl, heroUrl, heroGradient } from '../lib/images.js';
 import { WeatherPill, SnowReport } from './shared.jsx';
 import { isSkiSeason } from '../lib/calendar.js';
+import { HomeGetStarted } from './HomeGetStarted.jsx';
 
 /** "Here now" — who is physically at the Camp today, plus what's coming up. */
-export function WeekendScreen({ data, season, favorites, onOpenFamily, rsvpMap = {}, onPlan, onOpenEvent, onAddCal }) {
+export function WeekendScreen({ data, season, favorites, onOpenFamily, onEditFamily, onAddMember, onGoCalendar, onGoDirectory, rsvpMap = {}, onPlan, onOpenEvent, onAddCal }) {
   const myFam = data.families.find((f) => f.id === data.me?.familyId) || data.families[0];
+  const famFavCount = [...(favorites || [])].filter((k) => !String(k).startsWith('m:')).length;
   const [days, setDays] = React.useState(myFam ? myFam.presence.days : []);
   const toggle = (k) => setDays((d) => (d.includes(k) ? d.filter((x) => x !== k) : [...d, k]));
   const here = data.families.filter((f) => f.presence.here);
@@ -20,6 +22,9 @@ export function WeekendScreen({ data, season, favorites, onOpenFamily, rsvpMap =
 
   return (
     <div>
+      <HomeGetStarted family={myFam} favCount={famFavCount}
+        onEditFamily={onEditFamily} onAddMember={onAddMember} onGoCalendar={onGoCalendar} onGoDirectory={onGoDirectory} />
+
       {/* Hero */}
       <div style={{ position: 'relative', borderRadius: 'var(--radius-xl)', overflow: 'hidden', marginBottom: 'var(--space-6)', boxShadow: 'var(--shadow-md)', background: heroGradient(season), minHeight: 280 }}>
         <img src={heroUrl(season)} alt="" onError={(e) => { e.currentTarget.style.display = 'none'; }}

@@ -150,7 +150,11 @@ export function App({ onSignOut }) {
     const ev = route.item;
     body = <EventScreen event={ev} data={data} myRsvp={rsvpMap[ev.id] ?? ev.myRsvp} onRsvp={(v) => setRsvp(ev.id, v)} onBack={() => setRoute(null)} onAddCal={addToCalendar} />;
   } else if (view === 'weekend') {
-    body = <WeekendScreen data={data} season={season} favorites={favorites} onOpenFamily={openFamily} rsvpMap={rsvpMap} onPlan={() => openPost('gathering')} onOpenEvent={openEvent} onAddCal={addToCalendar} />;
+    body = <WeekendScreen data={data} season={season} favorites={favorites} onOpenFamily={openFamily}
+      onEditFamily={() => myFam && setEditTarget({ type: 'family', family: myFam })}
+      onAddMember={() => myFam && setAddMemberFor(myFam)}
+      onGoCalendar={() => go('calendar')} onGoDirectory={() => go('directory')}
+      rsvpMap={rsvpMap} onPlan={() => openPost('gathering')} onOpenEvent={openEvent} onAddCal={addToCalendar} />;
   } else if (view === 'directory') {
     body = <DirectoryScreen data={data} favorites={favorites} onToggleFav={toggleFav} onOpen={openFamily} />;
   } else if (view === 'calendar') {

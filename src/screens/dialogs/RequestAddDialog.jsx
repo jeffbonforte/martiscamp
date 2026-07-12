@@ -7,8 +7,8 @@ import { submitAddRequest } from '../../lib/api.js';
  * Any signed-in member can request that the admin add a person or a whole family
  * (with an email). It lands in the Admin → Requests queue.
  */
-export function RequestAddDialog({ open, onClose }) {
-  const [kind, setKind] = React.useState('person');
+export function RequestAddDialog({ open, initialKind = 'person', onClose }) {
+  const [kind, setKind] = React.useState(initialKind);
   const [name, setName] = React.useState('');
   const [email, setEmail] = React.useState('');
   const [note, setNote] = React.useState('');
@@ -18,8 +18,8 @@ export function RequestAddDialog({ open, onClose }) {
   useLucide();
 
   React.useEffect(() => {
-    if (open) { setKind('person'); setName(''); setEmail(''); setNote(''); setBusy(false); setDone(false); setErr(''); }
-  }, [open]);
+    if (open) { setKind(initialKind); setName(''); setEmail(''); setNote(''); setBusy(false); setDone(false); setErr(''); }
+  }, [open, initialKind]);
 
   const submit = async () => {
     setBusy(true); setErr('');
