@@ -18,8 +18,9 @@ export function EventScreen({ event, data, myRsvp, onRsvp, onBack, onAddCal, onE
   const isPrivate = event.visibility === 'private';
   const banner = activityImage(event.amenity);
   const me = data.me.name;
-  // The host who created it, or an admin, can edit or delete it.
-  const canManage = !!(me === event.host || data.me?.isAdmin);
+  // The host who created it, or an admin, can edit or delete it. Match the
+  // creator by member id (robust to name formatting), with name as a fallback.
+  const canManage = !!((data.me?.id && event.hostId && data.me.id === event.hostId) || (event.host && me === event.host) || data.me?.isAdmin);
   const [comments, setComments] = React.useState([]);
   const [newComment, setNewComment] = React.useState('');
   const [posting, setPosting] = React.useState(false);

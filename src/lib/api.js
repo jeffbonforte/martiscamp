@@ -179,10 +179,11 @@ export async function loadAppData() {
     const invitedIds = invitesByEvent[ev.id] || [];
     const myRow = me ? rs.find((r) => r.member_id === me.id) : null;
     return {
-      id: ev.slug, title: ev.title, amenity: ev.amenity, host: nameById[ev.host_member_id] || '',
+      id: ev.slug, title: ev.title, amenity: ev.amenity, host: nameById[ev.host_member_id] || '', hostId: ev.host_member_id,
       day: WEEKDAY_TO_KEY[weekdayTok] || null, when: ev.when_label, where: ev.location,
       capacity: ev.capacity, description: ev.description,
-      visibility: ev.visibility, youInvited: ev.visibility !== 'private' || (me ? invitedIds.includes(me.id) : true),
+      // The host is always "invited" to their own private event (they created it).
+      visibility: ev.visibility, youInvited: ev.visibility !== 'private' || (me ? (me.id === ev.host_member_id || invitedIds.includes(me.id)) : true),
       myRsvp: myRow ? myRow.status : null,
       invited: invitedIds.map((id) => ({ name: nameById[id] })).filter((x) => x.name),
       going: names('going'), maybe: names('maybe'), declined: names('declined'),
@@ -209,7 +210,7 @@ export async function loadAppData() {
   // as themselves (by email) with no family/admin so they can never inherit
   // someone else's identity. `needsSetup` flags the app to onboard them.
   const meOut = me
-    ? { name: me.name, familyId: meFamily ? meFamily.slug : null, isAdmin: !!me.is_admin }
+    ? { id: me.id, name: me.name, familyId: meFamily ? meFamily.slug : null, isAdmin: !!me.is_admin }
     : { name: session?.user?.email || 'You', familyId: null, isAdmin: false, needsSetup: true };
 
   return {
