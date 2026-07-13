@@ -4,7 +4,7 @@ import { useLucide } from './lib/useLucide.js';
 import { useWeather } from './lib/weather.js';
 import { LOGO_BADGE } from './lib/images.js';
 import { DATA } from './data/mockData.js';
-import { loadAppData, persistFavorite, persistRsvp } from './lib/api.js';
+import { loadAppData, persistFavorite, persistRsvp, deleteGathering } from './lib/api.js';
 import { WhatsButton, feedGlyph } from './screens/shared.jsx';
 import { isPastEvent } from './lib/calendar.js';
 
@@ -36,6 +36,7 @@ export function App({ onSignOut }) {
   const [route, setRoute] = React.useState(null);
   const [planOpen, setPlanOpen] = React.useState(false);
   const [postType, setPostType] = React.useState('gathering');
+  const [editEvent, setEditEvent] = React.useState(null);
   const [favorites, setFavorites] = React.useState(new Set());
   const [rsvpMap, setRsvpMap] = React.useState({});
   const [feedOpen, setFeedOpen] = React.useState(false);
@@ -104,7 +105,9 @@ export function App({ onSignOut }) {
   const openMember = (f, m) => setRoute({ type: 'member', item: f, member: m });
   const setRsvp = (id, v) => { setRsvpMap((m) => ({ ...m, [id]: v })); persistRsvp(id, v); };
   const addToCalendar = (g) => setCalEvent(g);
-  const openPost = (type) => { setPostType(type); setPlanOpen(true); };
+  const openPost = (type) => { setEditEvent(null); setPostType(type); setPlanOpen(true); };
+  const editGathering = (ev) => { setEditEvent(ev); setPlanOpen(true); };
+  const deleteGatheringEvent = async (ev) => { await deleteGathering(ev.id); setRoute(null); reload(); };
   // Refresh the dataset after a write, and re-point the open profile route at the
   // freshly-loaded objects (which carry resolved signed photo URLs) — otherwise
   // the profile keeps rendering the stale pre-reload object and its cover/photo
@@ -150,7 +153,8 @@ export function App({ onSignOut }) {
       onBack={() => openFamily(route.item)} onOpenFamily={() => openFamily(route.item)} onOpenEvent={openEvent} />;
   } else if (route?.type === 'event') {
     const ev = route.item;
-    body = <EventScreen event={ev} data={data} myRsvp={rsvpMap[ev.id] ?? ev.myRsvp} onRsvp={(v) => setRsvp(ev.id, v)} onBack={() => setRoute(null)} onAddCal={addToCalendar} />;
+    body = <EventScreen event={ev} data={data} myRsvp={rsvpMap[ev.id] ?? ev.myRsvp} onRsvp={(v) => setRsvp(ev.id, v)} onBack={() => setRoute(null)} onAddCal={addToCalendar}
+      onEdit={() => editGathering(ev)} onDelete={() => deleteGatheringEvent(ev)} />;
   } else if (view === 'weekend') {
     body = <WeekendScreen data={data} season={season} favorites={favorites} onOpenFamily={openFamily}
       onEditFamily={() => myFam && setEditTarget({ type: 'family', family: myFam })}
@@ -160,7 +164,7 @@ export function App({ onSignOut }) {
   } else if (view === 'directory') {
     body = <DirectoryScreen data={data} favorites={favorites} onToggleFav={toggleFav} onOpen={openFamily} />;
   } else if (view === 'calendar') {
-    body = <CalendarScreen data={data} season={season} favorites={favorites} onOpenEvent={openEvent} onPlanVisit={() => go('plan')} />;
+    body = <CalendarScreen data={data} season={season} favorites={favorites} onOpenEvent={openEvent} onPlanVisit={() => go('plan')} onOpenFamily={openFamily} onOpenMember={openMember} />;
   } else if (view === 'plan') {
     body = <PlanVisit data={data} onBack={() => go('calendar')} />;
   } else if (view === 'gatherings') {
@@ -247,7 +251,7 @@ export function App({ onSignOut }) {
           style={{ width: '100%', background: 'color-mix(in srgb, var(--surface-card) 92%, transparent)' }} />
       </div>
 
-      <HostDialog open={planOpen} data={data} initialType={postType} onClose={() => setPlanOpen(false)} onCreated={reload} />
+      <HostDialog open={planOpen} data={data} initialType={postType} editEvent={editEvent} onClose={() => { setPlanOpen(false); setEditEvent(null); }} onCreated={reload} />
       <EditProfileDialog target={editTarget} weekendDays={data.weekendDays} onClose={() => setEditTarget(null)} onSaved={bump} onReload={reload} />
       <AddMemberDialog family={addMemberFor} open={!!addMemberFor} onClose={() => setAddMemberFor(null)} onCreated={reload} />
       <AddToCalendarDialog event={calEvent} onClose={() => setCalEvent(null)} />

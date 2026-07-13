@@ -315,6 +315,29 @@ export async function createGathering(input) {
   return { ok: true, slug: ev.slug };
 }
 
+/** Edit a get-together (host or admin). Updates only the provided fields. */
+export async function updateGathering(slug, input) {
+  if (!isSupabaseConfigured) return { ok: false, offline: true };
+  const patch = {};
+  if (input.title !== undefined) patch.title = input.title || 'Get-together';
+  if (input.amenity !== undefined) patch.amenity = input.amenity || null;
+  if (input.when !== undefined) patch.when_label = input.when || null;
+  if (input.location !== undefined) patch.location = input.location || null;
+  if (input.description !== undefined) patch.description = input.description || null;
+  if (input.visibility !== undefined) patch.visibility = input.visibility === 'private' ? 'private' : 'open';
+  if (input.capacity !== undefined) patch.capacity = input.capacity == null || input.capacity === '' ? null : Number(input.capacity);
+  const { error } = await supabase.from('events').update(patch).eq('slug', slug);
+  return error ? { ok: false, error: error.message } : { ok: true };
+}
+
+/** Delete a get-together (host or admin). Soft-delete: archived, so it's gone
+ * from every view but reversible in the DB. */
+export async function deleteGathering(slug) {
+  if (!isSupabaseConfigured) return { ok: false, offline: true };
+  const { error } = await supabase.from('events').update({ archived_at: new Date().toISOString() }).eq('slug', slug);
+  return error ? { ok: false, error: error.message } : { ok: true };
+}
+
 /**
  * Load the signed-in family's saved attendance as a plan: per-member sets of
  * date keys (YYYY-MM-DD), plus a 'family' set = dates where every member is up.

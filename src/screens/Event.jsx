@@ -14,13 +14,16 @@ const RSVP_TOAST = {
 };
 
 /** Get-together detail: hero, RSVP, auto-collected contacts, comments, WhatsApp. */
-export function EventScreen({ event, data, myRsvp, onRsvp, onBack, onAddCal }) {
+export function EventScreen({ event, data, myRsvp, onRsvp, onBack, onAddCal, onEdit, onDelete }) {
   const isPrivate = event.visibility === 'private';
   const banner = activityImage(event.amenity);
   const me = data.me.name;
+  // The host who created it, or an admin, can edit or delete it.
+  const canManage = !!(me === event.host || data.me?.isAdmin);
   const [comments, setComments] = React.useState([]);
   const [newComment, setNewComment] = React.useState('');
   const [posting, setPosting] = React.useState(false);
+  const [confirmDelete, setConfirmDelete] = React.useState(false);
   const { push } = useToast();
   useLucide();
 
@@ -77,9 +80,25 @@ export function EventScreen({ event, data, myRsvp, onRsvp, onBack, onAddCal }) {
 
   return (
     <div>
-      <button type="button" onClick={onBack} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, border: 'none', background: 'transparent', cursor: 'pointer', color: 'var(--text-muted)', font: 'var(--fw-semibold) var(--text-sm) var(--font-sans)', marginBottom: 'var(--space-4)', padding: 0 }}>
-        <i data-lucide="chevron-left" style={{ width: 16, height: 16 }} /> Get-togethers
-      </button>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 'var(--space-4)', flexWrap: 'wrap' }}>
+        <button type="button" onClick={onBack} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, border: 'none', background: 'transparent', cursor: 'pointer', color: 'var(--text-muted)', font: 'var(--fw-semibold) var(--text-sm) var(--font-sans)', padding: 0 }}>
+          <i data-lucide="chevron-left" style={{ width: 16, height: 16 }} /> Get-togethers
+        </button>
+        {canManage && (
+          confirmDelete ? (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span style={{ font: 'var(--role-small)', color: 'var(--danger)' }}>Delete this get-together?</span>
+              <Button variant="secondary" size="sm" onClick={() => { setConfirmDelete(false); onDelete && onDelete(); }} style={{ color: 'var(--danger)', borderColor: 'var(--danger)' }}>Delete</Button>
+              <Button variant="ghost" size="sm" onClick={() => setConfirmDelete(false)}>Cancel</Button>
+            </div>
+          ) : (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <Button variant="secondary" size="sm" onClick={onEdit} iconLeft={<i data-lucide="pencil" style={{ width: 14, height: 14 }} />}>Edit</Button>
+              <Button variant="ghost" size="sm" onClick={() => setConfirmDelete(true)} iconLeft={<i data-lucide="trash-2" style={{ width: 14, height: 14 }} />} style={{ color: 'var(--danger)' }}>Delete</Button>
+            </div>
+          )
+        )}
+      </div>
 
       {banner && (
         <div style={{ position: 'relative', borderRadius: 'var(--radius-xl)', overflow: 'hidden', marginBottom: 'var(--space-6)', boxShadow: 'var(--shadow-md)' }}>

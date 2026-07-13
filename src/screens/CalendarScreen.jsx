@@ -2,7 +2,7 @@ import React from 'react';
 import { Button, AMENITIES, VisitPill, SeasonTimeline } from '../components/index.js';
 import { useLucide } from '../lib/useLucide.js';
 import { PageHead, SnowReport } from './shared.jsx';
-import { MONTHS, WEEKDAYS, monthMatrix, sameDay, isSkiSeason, dateKey } from '../lib/calendar.js';
+import { MONTHS, WEEKDAYS, monthMatrix, sameDay, isSkiSeason, dateKey, eventDate } from '../lib/calendar.js';
 import { loadVisitPlan, saveVisitPlan } from '../lib/api.js';
 import { useToast } from '../lib/toast.jsx';
 
@@ -27,7 +27,7 @@ function contiguousSpans(dates) {
   return spans.map((s) => ({ start: new Date(s.startT), end: new Date(s.endT) }));
 }
 
-export function CalendarScreen({ data, season, favorites, onOpenEvent, onPlanVisit }) {
+export function CalendarScreen({ data, season, favorites, onOpenEvent, onPlanVisit, onOpenFamily, onOpenMember }) {
   const myFam = data.families.find((f) => f.id === data.me.familyId);
   const [offset, setOffset] = React.useState(0); // months ahead of the current month (0..12)
   const { push } = useToast();
@@ -67,9 +67,6 @@ export function CalendarScreen({ data, season, favorites, onOpenEvent, onPlanVis
   };
 
   const ANCHOR_MONTH = { year: APP_TODAY.getFullYear(), month: APP_TODAY.getMonth() };
-  const windowDates = data.weekendDays.map((d) => d.date);
-  const winStart = windowDates[0];
-  const winEnd = windowDates[windowDates.length - 1];
 
   // day key ("fri") -> the real Date in the rolling window.
   const dayKeyDate = (key) => { const wd = data.weekendDays.find((d) => d.key === key); return wd ? wd.date : null; };
@@ -90,7 +87,7 @@ export function CalendarScreen({ data, season, favorites, onOpenEvent, onPlanVis
 
   const arrivals = [
     ...favFamilies.map((f) => ({ key: 'f:' + f.id, name: `The ${f.name}s`, tone: f.tone, ...nextArrival(f.presence.days), family: f })),
-    ...favMembers.map((m) => ({ key: 'm:' + m.name, name: m.name, tone: m.tone, ...nextArrival(m.days), family: m.family })),
+    ...favMembers.map((m) => ({ key: 'm:' + m.name, name: m.name, tone: m.tone, ...nextArrival(m.days), family: m.family, member: m })),
   ].filter((a) => a.first).sort((a, b) => a.first - b.first);
 
   // ---- Season at a glance (DS v1.1 SeasonTimeline) ----
@@ -121,12 +118,11 @@ export function CalendarScreen({ data, season, favorites, onOpenEvent, onPlanVis
     const community = data.events
       .filter((e) => { const d = evDate(e); return e.community && d && sameDay(d, date); })
       .map((e) => ({ title: e.title, amenity: e.amenity, community: true, gathering: null }));
-    // Member get-togethers are keyed to a weekday within the rolling window.
-    const gats = (date >= winStart && date <= winEnd)
-      ? data.gatherings
-          .filter((g) => { const gd = dayKeyDate(g.day); return gd && sameDay(gd, date); })
-          .map((g) => ({ title: g.title, amenity: g.amenity, community: false, gathering: g }))
-      : [];
+    // Member get-togethers land on their real date (parsed from the label), any
+    // month ahead — not just the rolling window.
+    const gats = data.gatherings
+      .filter((g) => { const gd = eventDate(g); return gd && sameDay(gd, date); })
+      .map((g) => ({ title: g.title, amenity: g.amenity, community: false, gathering: g }));
     return [...community, ...gats];
   };
 
@@ -167,8 +163,10 @@ export function CalendarScreen({ data, season, favorites, onOpenEvent, onPlanVis
       ) : (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 'var(--space-4)', marginBottom: 'var(--space-8)' }}>
           {arrivals.map((a) => (
-            <button key={a.key} type="button" onClick={() => onOpenEvent && a.family && null}
-              style={{ textAlign: 'left', cursor: 'default', display: 'flex', alignItems: 'center', gap: 12, background: 'var(--surface-card)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', padding: 'var(--space-4)', boxShadow: 'var(--shadow-sm)' }}>
+            <button key={a.key} type="button"
+              onClick={() => (a.member ? onOpenMember && onOpenMember(a.family, a.member) : onOpenFamily && onOpenFamily(a.family))}
+              title={`View ${a.member ? a.name : a.name + "’s"} profile`}
+              style={{ textAlign: 'left', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 12, background: 'var(--surface-card)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', padding: 'var(--space-4)', boxShadow: 'var(--shadow-sm)' }}>
               <span style={{ width: 44, height: 44, borderRadius: '50%', flexShrink: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: `color-mix(in srgb, ${a.tone} 16%, var(--snow))`, color: a.tone }}>
                 <i data-lucide="map-pin" style={{ width: 18, height: 18 }} />
               </span>

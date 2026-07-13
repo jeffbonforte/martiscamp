@@ -140,6 +140,20 @@ export function isPastEvent(item, now = new Date()) {
   return now.getTime() - start.getTime() > ARCHIVE_AFTER_MS;
 }
 
+// Parse just the calendar date (ignoring any time) from a when_label like
+// "Sat, Aug 15 · 8:30 AM" — so a get-together lands on the month grid on its
+// real date, any month ahead (not only the rolling 7-day window). Pinned to the
+// current year. Null if unparseable.
+export function eventDate(item, now = new Date()) {
+  const when = item && item.when;
+  if (!when) return null;
+  const m = String(when).match(/([A-Z][a-z]{2})\s+(\d{1,2})/); // first "Mon 15" (skips the weekday, which has a comma)
+  if (!m) return null;
+  const monIdx = MONTHS_SHORT.findIndex((x) => x.toLowerCase() === m[1].toLowerCase());
+  if (monIdx < 0) return null;
+  return new Date(now.getFullYear(), monIdx, parseInt(m[2], 10));
+}
+
 function toICSStamp(date) {
   // Local-time floating value (no Z) — calendars interpret in the user's tz.
   const p = (n) => String(n).padStart(2, '0');

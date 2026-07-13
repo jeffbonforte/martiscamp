@@ -1,12 +1,11 @@
 import React from 'react';
 import { Dialog, Button, Input, Select, Textarea, SegmentedControl, AMENITIES } from '../../components/index.js';
 import { useLucide } from '../../lib/useLucide.js';
-import { createGathering } from '../../lib/api.js';
-import { buildWeekendDays, MONTHS_SHORT } from '../../lib/calendar.js';
+import { createGathering, updateGathering } from '../../lib/api.js';
+import { dateKey, eventDate } from '../../lib/calendar.js';
 
 const VENUES = ['Golf clubhouse', 'Camp Lodge Bistro', 'The Family Barn', 'The Beach Club', 'Martis Perk', 'Tennis Pavilion', 'Lookout Lodge', 'Pickleball courts'];
-// Real upcoming days (rolling window from today), e.g. "Sat, Jul 11".
-const DAYS = buildWeekendDays().map((d) => `${d.label}, ${MONTHS_SHORT[d.date.getMonth()]} ${d.sub}`);
+const TODAY_KEY = dateKey(new Date());
 const AMENITY_OPTS = Object.entries(AMENITIES).map(([value, v]) => ({ value, label: v.label }));
 
 /**
@@ -54,7 +53,8 @@ function InviteePicker({ candidates, selected, onAdd, onRemove, hint }) {
  * Supabase (when configured); announcements are not yet persisted (no-op close).
  * Calls onCreated() after a successful create so the app can refresh.
  */
-export function HostDialog({ open, data, initialType = 'gathering', onClose, onCreated }) {
+export function HostDialog({ open, data, initialType = 'gathering', editEvent = null, onClose, onCreated }) {
+  const isEdit = !!editEvent;
   const [postType, setPostType] = React.useState(initialType);
   const [planVis, setPlanVis] = React.useState('open');
   const [invitees, setInvitees] = React.useState([]);
@@ -64,7 +64,7 @@ export function HostDialog({ open, data, initialType = 'gathering', onClose, onC
   // get-together fields
   const [title, setTitle] = React.useState('');
   const [amenity, setAmenity] = React.useState('golf');
-  const [day, setDay] = React.useState(DAYS[2]);
+  const [date, setDate] = React.useState(''); // YYYY-MM-DD, any upcoming day
   const [where, setWhere] = React.useState(VENUES[0]);
   const [time, setTime] = React.useState('');
   const [cap, setCap] = React.useState('');
@@ -72,11 +72,23 @@ export function HostDialog({ open, data, initialType = 'gathering', onClose, onC
   useLucide();
 
   React.useEffect(() => {
-    if (open) {
-      setPostType(initialType); setInvitees([]); setErr(''); setBusy(false);
-      setTitle(''); setAmenity('golf'); setDay(DAYS[2]); setWhere(VENUES[0]); setTime(''); setCap(''); setDetails(''); setPlanVis('open');
+    if (!open) return;
+    setErr(''); setBusy(false);
+    if (editEvent) {
+      // Prefill from the get-together being edited.
+      const ed = eventDate(editEvent);
+      const timePart = (editEvent.when || '').includes('·') ? editEvent.when.split('·').slice(1).join('·').trim() : '';
+      setPostType('gathering');
+      setTitle(editEvent.title || ''); setAmenity(editEvent.amenity || 'golf');
+      setDate(ed ? dateKey(ed) : ''); setWhere(editEvent.where || VENUES[0]); setTime(timePart);
+      setCap(editEvent.capacity != null ? String(editEvent.capacity) : '');
+      setDetails(editEvent.description || ''); setPlanVis(editEvent.visibility === 'private' ? 'private' : 'open');
+      setInvitees((editEvent.invited || []).map((x) => x.name).filter(Boolean));
+    } else {
+      setPostType(initialType); setInvitees([]);
+      setTitle(''); setAmenity('golf'); setDate(''); setWhere(VENUES[0]); setTime(''); setCap(''); setDetails(''); setPlanVis('open');
     }
-  }, [open, initialType]);
+  }, [open, initialType, editEvent]);
 
   const addInvitee = (n) => setInvitees((v) => (v.includes(n) ? v : [...v, n]));
   const removeInvitee = (n) => setInvitees((v) => v.filter((x) => x !== n));
@@ -89,25 +101,32 @@ export function HostDialog({ open, data, initialType = 'gathering', onClose, onC
 
   const submit = async () => {
     if (postType !== 'gathering') { onClose(); return; } // announcements not persisted yet
+    if (!date) { setErr('Pick a date for your get-together.'); return; }
     setErr(''); setBusy(true);
-    const when = [day, time].filter(Boolean).join(' · ');
-    const r = await createGathering({
+    // "2026-08-15" → "Sat, Aug 15" so the label carries the real date (parses back
+    // for calendar placement + auto-archiving).
+    const dateLabel = new Date(date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+    const when = [dateLabel, time].filter(Boolean).join(' · ');
+    const payload = {
       title: title.trim() || 'Get-together', amenity, when, location: where, description: details,
-      visibility: planVis, capacity: planVis === 'open' ? cap : cap, inviteeNames: invitees,
-    });
+      visibility: planVis, capacity: cap, inviteeNames: invitees,
+    };
+    const r = isEdit ? await updateGathering(editEvent.id, payload) : await createGathering(payload);
     setBusy(false);
-    if (r.ok) { onCreated && onCreated(r.slug); onClose(); }
+    if (r.ok) { onCreated && onCreated(isEdit ? editEvent.id : r.slug); onClose(); }
     else if (r.offline) { onClose(); } // mock mode: nothing to persist
-    else setErr(r.error || 'Could not post the get-together.');
+    else setErr(r.error || `Could not ${isEdit ? 'save' : 'post'} the get-together.`);
   };
 
   return (
-    <Dialog open={open} onClose={onClose} title={postType === 'announcement' ? 'Post an announcement' : 'Host a get-together'}
+    <Dialog open={open} onClose={onClose} title={isEdit ? 'Edit get-together' : postType === 'announcement' ? 'Post an announcement' : 'Host a get-together'}
       footer={<><Button variant="ghost" onClick={onClose}>Cancel</Button>
-        <Button onClick={submit} disabled={busy}>{busy ? 'Posting…' : postType === 'announcement' ? 'Post announcement' : 'Post get-together'}</Button></>}>
+        <Button onClick={submit} disabled={busy}>{busy ? 'Saving…' : isEdit ? 'Save changes' : postType === 'announcement' ? 'Post announcement' : 'Post get-together'}</Button></>}>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-        <SegmentedControl value={postType} onChange={setPostType}
-          options={[{ value: 'gathering', label: 'Get-together', icon: 'party-popper' }, { value: 'announcement', label: 'Announcement', icon: 'megaphone' }]} />
+        {!isEdit && (
+          <SegmentedControl value={postType} onChange={setPostType}
+            options={[{ value: 'gathering', label: 'Get-together', icon: 'party-popper' }, { value: 'announcement', label: 'Announcement', icon: 'megaphone' }]} />
+        )}
 
         {postType === 'announcement' ? (
           <>
@@ -131,10 +150,10 @@ export function HostDialog({ open, data, initialType = 'gathering', onClose, onC
             <Input label="What's the plan?" placeholder="Saturday morning 9 holes" value={title} onChange={(e) => setTitle(e.target.value)} />
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
               <Select label="Activity" options={AMENITY_OPTS} value={amenity} onChange={(e) => setAmenity(e.target.value)} />
-              <Select label="Day" options={DAYS} value={day} onChange={(e) => setDay(e.target.value)} />
+              <Input label="Date" type="date" min={TODAY_KEY} value={date} onChange={(e) => setDate(e.target.value)} hint="Any upcoming day" />
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-              <Select label="Where" options={VENUES} value={where} onChange={(e) => setWhere(e.target.value)} />
+              <Select label="Where" options={where && !VENUES.includes(where) ? [where, ...VENUES] : VENUES} value={where} onChange={(e) => setWhere(e.target.value)} />
               <Input label="Time" placeholder="8:30 AM" value={time} onChange={(e) => setTime(e.target.value)} />
             </div>
             <div>
