@@ -169,7 +169,10 @@ export async function loadAppData() {
   if (coverRefs.length || memberRefs.length) {
     const [full, thumb, member] = await Promise.all([
       signRefs(coverRefs),                              // full-res: profile hero + card fallback
-      signRefs(coverRefs, { width: 640, quality: 62 }), // small: fast card thumbnail
+      // small thumbnail for cards. resize:'contain' keeps the FULL image + its
+      // aspect ratio (default 'cover' would center-crop server-side, destroying
+      // the family's coverPos framing); the card still crops via CSS objectFit.
+      signRefs(coverRefs, { width: 640, resize: 'contain', quality: 62 }),
       signRefs(memberRefs),                             // member avatars
     ]);
     for (const f of mappedFamilies) {
