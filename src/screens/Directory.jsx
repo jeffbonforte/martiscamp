@@ -85,7 +85,7 @@ export function DirectoryScreen({ data, favorites, onToggleFav, onOpen }) {
         ? <EmptyState glyph="users" title="No families here yet" description="Try a different search, or favorite a family to see them here." />
         : <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 'var(--space-5)' }}>
             {list.map((f) => (
-              <FamilyCard key={f.id} family={f} cover={coverUrl(f.cover)} onOpen={() => onOpen(f)}
+              <FamilyCard key={f.id} family={f} cover={coverUrl(f.coverThumb || f.cover)} coverFallback={coverUrl(f.cover)} onOpen={() => onOpen(f)}
                 favorite={favorites.has(f.id)} onToggleFavorite={() => onToggleFav(f.id)} />
             ))}
           </div>}

@@ -76,7 +76,7 @@ export function WeekendScreen({ data, season, favorites, onOpenFamily, onEditFam
             <span style={{ font: 'var(--role-h2)', color: 'var(--text-strong)' }}>Your favorites, here now</span>
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 'var(--space-4)', marginBottom: 'var(--space-8)' }}>
-            {favHere.map((f) => <FamilyCard key={f.name} family={f} cover={coverUrl(f.cover)} onOpen={() => open(f)} />)}
+            {favHere.map((f) => <FamilyCard key={f.name} family={f} cover={coverUrl(f.coverThumb || f.cover)} coverFallback={coverUrl(f.cover)} onOpen={() => open(f)} />)}
           </div>
         </>
       )}
@@ -85,7 +85,7 @@ export function WeekendScreen({ data, season, favorites, onOpenFamily, onEditFam
         <>
           <div style={{ font: 'var(--role-h2)', color: 'var(--text-strong)', margin: '0 0 var(--space-4)' }}>{favHere.length ? 'Also here now' : 'Here now'}</div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 'var(--space-4)', marginBottom: 'var(--space-8)' }}>
-            {otherHere.map((f) => <FamilyCard key={f.name} family={f} cover={coverUrl(f.cover)} onOpen={() => open(f)} />)}
+            {otherHere.map((f) => <FamilyCard key={f.name} family={f} cover={coverUrl(f.coverThumb || f.cover)} coverFallback={coverUrl(f.cover)} onOpen={() => open(f)} />)}
           </div>
         </>
       )}

@@ -157,16 +157,25 @@ export async function loadAppData() {
 
   // Resolve private storage refs (family covers + member photos) to short-lived
   // signed URLs for display. Public/bundled values pass through unchanged.
-  const photoRefs = [];
+  // Covers get TWO signed URLs: a full-res one (profile hero + fallback) and a
+  // small resized `coverThumb` so the little directory/home cards don't download
+  // the multi-megapixel original.
+  const coverRefs = [];
+  const memberRefs = [];
   for (const f of mappedFamilies) {
-    if (parseStorageRef(f.cover)) photoRefs.push(f.cover);
-    for (const m of f.members) if (parseStorageRef(m.photo)) photoRefs.push(m.photo);
+    if (parseStorageRef(f.cover)) coverRefs.push(f.cover);
+    for (const m of f.members) if (parseStorageRef(m.photo)) memberRefs.push(m.photo);
   }
-  if (photoRefs.length) {
-    const signed = await signRefs(photoRefs);
+  if (coverRefs.length || memberRefs.length) {
+    const [full, thumb, member] = await Promise.all([
+      signRefs(coverRefs),                              // full-res: profile hero + card fallback
+      signRefs(coverRefs, { width: 640, quality: 62 }), // small: fast card thumbnail
+      signRefs(memberRefs),                             // member avatars
+    ]);
     for (const f of mappedFamilies) {
-      if (f.cover in signed) f.cover = signed[f.cover];
-      for (const m of f.members) if (m.photo in signed) m.photo = signed[m.photo];
+      const ref = f.cover;
+      if (ref in full) { f.coverThumb = thumb[ref] || full[ref]; f.cover = full[ref]; }
+      for (const m of f.members) if (m.photo in member) m.photo = member[m.photo];
     }
   }
 
@@ -638,13 +647,17 @@ function parseStorageRef(ref) {
 /** A resolved display URL is a signed storage URL — never persist it back. */
 const isSignedStorageUrl = (v) => typeof v === 'string' && v.includes('/storage/v1/object/sign/');
 
-/** Resolve a batch of unique refs to signed URLs (unresolvable → null). */
-async function signRefs(refs) {
+/** Resolve a batch of unique refs to signed URLs (unresolvable → null).
+ *  Pass `transform` (e.g. { width, quality }) to request a resized render — used
+ *  to serve small thumbnails to the little cards instead of the full-res original
+ *  (relies on Supabase image transformations; callers fall back to the full URL). */
+async function signRefs(refs, transform) {
   const out = {};
+  const opts = transform ? { transform } : undefined;
   await Promise.all([...new Set(refs)].map(async (ref) => {
     const p = parseStorageRef(ref);
     if (!p) { out[ref] = ref; return; } // public/bundled — pass through
-    const { data, error } = await supabase.storage.from(p.bucket).createSignedUrl(p.path, SIGN_TTL);
+    const { data, error } = await supabase.storage.from(p.bucket).createSignedUrl(p.path, SIGN_TTL, opts);
     out[ref] = error ? null : data.signedUrl;
   }));
   return out;
