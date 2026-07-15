@@ -97,6 +97,10 @@ export async function loadAppData() {
   }
   const session = await getSession();
   const me = session ? await ensureMemberLink(session) : null;
+  // The member id creation uses (current_member_id RPC). Matching against THIS —
+  // rather than the user_id-linked me.id — is what reliably identifies "my own"
+  // get-togethers, since those two can diverge (e.g. legacy duplicate members).
+  const myMemberId = me ? await currentMemberId() : null;
 
   const [familiesRes, membersRes, attendanceRes, eventsRes, rsvpsRes, invitesRes, communityRes, feedRes, favoritesRes] = await Promise.all([
     supabase.from('families').select('*').is('archived_at', null),
@@ -180,6 +184,7 @@ export async function loadAppData() {
     const myRow = me ? rs.find((r) => r.member_id === me.id) : null;
     return {
       id: ev.slug, title: ev.title, amenity: ev.amenity, host: nameById[ev.host_member_id] || '', hostId: ev.host_member_id,
+      mine: !!(myMemberId && ev.host_member_id === myMemberId), // did the signed-in member create this?
       day: WEEKDAY_TO_KEY[weekdayTok] || null, when: ev.when_label, where: ev.location,
       capacity: ev.capacity, description: ev.description,
       // The host is always "invited" to their own private event (they created it).
