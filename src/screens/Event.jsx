@@ -22,8 +22,6 @@ export function EventScreen({ event, data, myRsvp, onRsvp, onBack, onAddCal, onE
   // computed server-side against the same member id creation uses (reliable);
   // id/name are extra fallbacks.
   const canManage = !!(event.mine || (data.me?.id && event.hostId && data.me.id === event.hostId) || (event.host && me === event.host) || data.me?.isAdmin);
-  // Hidden diagnostic: open the event with ?mcfdebug=1 in the URL to see why.
-  const showDebug = typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('mcfdebug');
   const [comments, setComments] = React.useState([]);
   const [newComment, setNewComment] = React.useState('');
   const [posting, setPosting] = React.useState(false);
@@ -103,12 +101,6 @@ export function EventScreen({ event, data, myRsvp, onRsvp, onBack, onAddCal, onE
           )
         )}
       </div>
-
-      {showDebug && (
-        <pre style={{ background: 'var(--surface-sunk)', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', padding: 'var(--space-3)', font: 'var(--text-xs) var(--font-mono)', color: 'var(--text-body)', overflowX: 'auto', marginBottom: 'var(--space-4)' }}>
-{JSON.stringify({ canManage, mine: event.mine, meId: data.me?.id, meName: data.me?.name, isAdmin: data.me?.isAdmin, hostId: event.hostId, host: event.host }, null, 2)}
-      </pre>
-      )}
 
       {banner && (
         <div style={{ position: 'relative', borderRadius: 'var(--radius-xl)', overflow: 'hidden', marginBottom: 'var(--space-6)', boxShadow: 'var(--shadow-md)' }}>
