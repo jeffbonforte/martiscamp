@@ -5,7 +5,7 @@ import { useWeather } from './lib/weather.js';
 import { LOGO_BADGE } from './lib/images.js';
 import { DATA } from './data/mockData.js';
 import { loadAppData, persistFavorite, persistRsvp, deleteGathering } from './lib/api.js';
-import { WhatsButton, feedGlyph } from './screens/shared.jsx';
+import { feedGlyph, WA_ASSISTANT } from './screens/shared.jsx';
 import { isPastEvent } from './lib/calendar.js';
 
 import { WeekendScreen } from './screens/Weekend.jsx';
@@ -198,7 +198,14 @@ export function App({ onSignOut }) {
             <i data-lucide="map-pin" style={{ width: 16, height: 16 }} /> Martis Camp · Truckee, CA
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-            <WhatsButton size="sm" label="WhatsApp" />
+            <a href={WA_ASSISTANT.href} target="_blank" rel="noopener"
+              title={`Ask the Martis assistant on WhatsApp · ${WA_ASSISTANT.display}`}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: 7, textDecoration: 'none',
+                padding: '7px 12px', borderRadius: 'var(--radius-pill)', background: '#1FA855', color: '#fff',
+                font: 'var(--fw-semibold) var(--text-xs)/1 var(--font-sans)', whiteSpace: 'nowrap' }}>
+              <i data-lucide="message-circle" style={{ width: 15, height: 15 }} />
+              <span style={{ fontVariantNumeric: 'tabular-nums' }}>{WA_ASSISTANT.vanity}</span>
+            </a>
             <button type="button" aria-label="Notifications" onClick={() => setFeedOpen((o) => !o)}
               style={{ position: 'relative', display: 'inline-flex', border: 'none', background: feedOpen ? 'var(--surface-sunk)' : 'transparent', cursor: 'pointer', padding: 8, borderRadius: 'var(--radius-md)' }}>
               <i data-lucide="bell" style={{ width: 20, height: 20, color: feedOpen ? 'var(--brand)' : 'var(--text-muted)' }} />
