@@ -1,7 +1,7 @@
 import React from 'react';
 
 /** App sidebar nav. brand wordmark + item list. items=[{key,label,icon,badge?}]. */
-export function Sidebar({ items = [], active, onSelect, footer = null, logo = null, style = {} }) {
+export function Sidebar({ items = [], active, onSelect, footer = null, belowNav = null, logo = null, style = {} }) {
   const [logoErr, setLogoErr] = React.useState(false);
   const showLogo = logo && !logoErr;
   return (
@@ -53,6 +53,7 @@ export function Sidebar({ items = [], active, onSelect, footer = null, logo = nu
         })}
       </div>
 
+      {belowNav && <div style={{ marginTop: 'var(--space-2)' }}>{belowNav}</div>}
       {footer && <div style={{ borderTop: '1px solid var(--divider)', paddingTop: 'var(--space-4)', marginTop: 'var(--space-4)' }}>{footer}</div>}
     </nav>
   );

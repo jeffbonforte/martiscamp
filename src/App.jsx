@@ -24,6 +24,7 @@ import { EditProfileDialog } from './screens/dialogs/EditProfileDialog.jsx';
 import { AddMemberDialog } from './screens/dialogs/AddMemberDialog.jsx';
 import { ToastProvider } from './lib/toast.jsx';
 import { AddToCalendarDialog } from './screens/dialogs/AddToCalendarDialog.jsx';
+import { WhatsAppQR } from './components/app/WhatsAppQR.jsx';
 
 const seasonOf = (d) => { const m = d.getMonth(); return (m <= 1 || m === 11) ? 'winter' : m <= 4 ? 'spring' : m <= 7 ? 'summer' : 'fall'; };
 
@@ -43,6 +44,7 @@ export function App({ onSignOut }) {
   const [calEvent, setCalEvent] = React.useState(null);
   const [editTarget, setEditTarget] = React.useState(null);
   const [addMemberFor, setAddMemberFor] = React.useState(null);
+  const [qrOpen, setQrOpen] = React.useState(false);
 
   React.useEffect(() => {
     let alive = true;
@@ -182,6 +184,13 @@ export function App({ onSignOut }) {
     <div className="shell">
       <div className="desktop-nav">
         <Sidebar items={nav} active={route ? null : view} onSelect={go} logo={LOGO_BADGE}
+          belowNav={(
+            <button type="button" onClick={() => setQrOpen(true)} title="QR code to chat with the assistant on WhatsApp"
+              style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', padding: '9px var(--space-3)', border: 'none', cursor: 'pointer', textAlign: 'left', borderRadius: 'var(--radius-md)', width: '100%', background: 'transparent', color: 'var(--text-body)', font: 'var(--fw-medium) var(--text-sm)/1 var(--font-sans)' }}>
+              <i data-lucide="qr-code" style={{ width: 18, height: 18, color: 'var(--text-muted)' }} />
+              <span style={{ flex: 1 }}>WhatsApp QR</span>
+            </button>
+          )}
           footer={<button type="button" onClick={() => go('account')} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 4px', width: '100%', border: 'none', cursor: 'pointer', borderRadius: 'var(--radius-md)', textAlign: 'left', background: (!route && view === 'account') ? 'var(--brand-soft)' : 'transparent' }}>
             <Avatar name={me.name} src={myMember && myMember.photo} size="sm" />
             <div style={{ minWidth: 0, flex: 1 }}>
@@ -198,14 +207,20 @@ export function App({ onSignOut }) {
             <i data-lucide="map-pin" style={{ width: 16, height: 16 }} /> Martis Camp · Truckee, CA
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-            <a href={WA_ASSISTANT.href} target="_blank" rel="noopener"
-              title={`Ask the Martis assistant on WhatsApp · ${WA_ASSISTANT.display}`}
-              style={{ display: 'inline-flex', alignItems: 'center', gap: 7, textDecoration: 'none',
-                padding: '7px 12px', borderRadius: 'var(--radius-pill)', background: '#1FA855', color: '#fff',
-                font: 'var(--fw-semibold) var(--text-xs)/1 var(--font-sans)', whiteSpace: 'nowrap' }}>
-              <i data-lucide="message-circle" style={{ width: 15, height: 15 }} />
-              <span style={{ fontVariantNumeric: 'tabular-nums' }}>{WA_ASSISTANT.vanity}</span>
-            </a>
+            <div style={{ display: 'inline-flex', alignItems: 'stretch', borderRadius: 'var(--radius-pill)', background: '#1FA855', color: '#fff', overflow: 'hidden', whiteSpace: 'nowrap' }}>
+              <a href={WA_ASSISTANT.href} target="_blank" rel="noopener"
+                title={`Ask the Martis assistant on WhatsApp · ${WA_ASSISTANT.display}`}
+                style={{ display: 'inline-flex', alignItems: 'center', gap: 7, textDecoration: 'none', color: '#fff',
+                  padding: '7px 12px', font: 'var(--fw-semibold) var(--text-xs)/1 var(--font-sans)' }}>
+                <i data-lucide="message-circle" style={{ width: 15, height: 15 }} />
+                <span style={{ fontVariantNumeric: 'tabular-nums' }}>{WA_ASSISTANT.vanity}</span>
+              </a>
+              <button type="button" onClick={() => setQrOpen(true)} aria-label="Show WhatsApp QR code" title="Show a QR code to scan"
+                style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: '0 10px', border: 'none',
+                  borderLeft: '1px solid rgba(255,255,255,.3)', background: 'transparent', color: '#fff', cursor: 'pointer' }}>
+                <i data-lucide="qr-code" style={{ width: 15, height: 15 }} />
+              </button>
+            </div>
             <button type="button" aria-label="Notifications" onClick={() => setFeedOpen((o) => !o)}
               style={{ position: 'relative', display: 'inline-flex', border: 'none', background: feedOpen ? 'var(--surface-sunk)' : 'transparent', cursor: 'pointer', padding: 8, borderRadius: 'var(--radius-md)' }}>
               <i data-lucide="bell" style={{ width: 20, height: 20, color: feedOpen ? 'var(--brand)' : 'var(--text-muted)' }} />
@@ -262,6 +277,7 @@ export function App({ onSignOut }) {
       <EditProfileDialog target={editTarget} weekendDays={data.weekendDays} onClose={() => setEditTarget(null)} onSaved={bump} onReload={reload} />
       <AddMemberDialog family={addMemberFor} open={!!addMemberFor} onClose={() => setAddMemberFor(null)} onCreated={reload} />
       <AddToCalendarDialog event={calEvent} onClose={() => setCalEvent(null)} />
+      <WhatsAppQR open={qrOpen} onClose={() => setQrOpen(false)} href={WA_ASSISTANT.href} number={WA_ASSISTANT.display} vanity={WA_ASSISTANT.vanity} />
     </div>
     </ToastProvider>
   );
