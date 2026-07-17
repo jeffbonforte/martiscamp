@@ -17,6 +17,36 @@ export const dbConfigured = !!db;
 const digitsOnly = (s) => String(s || '').replace(/\D/g, '');
 const last10 = (s) => digitsOnly(s).slice(-10);
 
+/** Stable per-person conversation key (last 10 digits of the phone). */
+export function phoneKey(phone) { return last10(phone); }
+
+// ---- conversation memory -------------------------------------------------
+// Recent turns per phone, so follow-ups ("what about next weekend?") have
+// context. Expires after CONV_TTL_MIN of silence. Requires the wa_conversations
+// table (see docs/whatsapp-agent.md); if it's missing, memory is simply off.
+const CONV_TTL_MIN = 30;
+const CONV_MAX_TURNS = 6; // last 3 exchanges
+
+export async function loadConversation(key) {
+  if (!db || !key) return [];
+  try {
+    const { data, error } = await db.from('wa_conversations').select('turns, updated_at').eq('phone', key).maybeSingle();
+    if (error || !data) return [];
+    if (Date.now() - new Date(data.updated_at).getTime() > CONV_TTL_MIN * 60000) return [];
+    return Array.isArray(data.turns) ? data.turns : [];
+  } catch { return []; }
+}
+
+export async function saveConversation(key, turns) {
+  if (!db || !key) return;
+  try {
+    await db.from('wa_conversations').upsert(
+      { phone: key, turns: turns.slice(-CONV_MAX_TURNS), updated_at: new Date().toISOString() },
+      { onConflict: 'phone' },
+    );
+  } catch { /* table not created yet → memory disabled, agent still works */ }
+}
+
 // ---- identity ------------------------------------------------------------
 
 /** Resolve an inbound phone (any format) to a member, matched on the last 10

@@ -11,7 +11,7 @@
 // WHATSAPP_AGENT_MODEL, WHATSAPP_TEST_KEY.
 
 import twilio from 'twilio';
-import { memberByPhone, dbConfigured } from './_lib/db.js';
+import { memberByPhone, dbConfigured, phoneKey, loadConversation, saveConversation } from './_lib/db.js';
 import { runAgent } from './_lib/agent.js';
 
 const xmlEscape = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -29,7 +29,10 @@ async function handleMessage({ from, text }, res, mode) {
     if (!q) return reply('Hi! Ask me things like “Which of my favorites are up this weekend?” or “When is the Bell family next at Martis?”');
     const member = await memberByPhone(phone);
     if (!member) return reply('This number isn’t registered with Martis Camp Families yet — ask an admin to add your mobile number to your member profile.');
-    const answer = await runAgent(q, member);
+    const key = phoneKey(phone);
+    const history = await loadConversation(key);
+    const answer = await runAgent(q, member, history);
+    await saveConversation(key, [...history, { role: 'user', content: q }, { role: 'assistant', content: answer }]);
     return reply(answer);
   } catch (e) {
     console.error('[whatsapp] error', e);

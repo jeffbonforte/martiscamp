@@ -142,6 +142,7 @@ function systemPrompt(member, today) {
     `"This weekend" means Friday–Sunday, ${wknd.start} to ${wknd.end}. Compute any other relative dates yourself from today's date and pass explicit YYYY-MM-DD ranges to the tools.`,
     '',
     'Style: reply like a text message — a sentence or two, or a short list with simple dashes. Plain text ONLY: no markdown, no asterisks, no bold, no headings; WhatsApp shows those symbols literally. Use plain line breaks. Warm and concise.',
+    'This may be a continuing text conversation — use the earlier messages for context (e.g. "what about next weekend?" refers to the previous topic).',
     'Rules:',
     "- Answer only from the tools. Never invent people, visits, or gatherings. If there's no data (nobody here, no upcoming visit), say so plainly.",
     '- If a name matches more than one person, ask which one instead of guessing.',
@@ -149,12 +150,13 @@ function systemPrompt(member, today) {
   ].join('\n');
 }
 
-/** Run the agent for one inbound message. Returns the reply text. */
-export async function runAgent(question, member) {
+/** Run the agent for one inbound message. `history` is prior text turns
+ *  ([{role,content}, …]) for conversational context. Returns the reply text. */
+export async function runAgent(question, member, history = []) {
   const today = todayISO();
   const { familyName, memberById } = await roster();
   const ctx = { member, today, familyName, memberById };
-  const messages = [{ role: 'user', content: question }];
+  const messages = [...history, { role: 'user', content: question }];
 
   for (let i = 0; i < 6; i += 1) {
     const resp = await client().messages.create({
