@@ -33,6 +33,8 @@ async function handleMessage({ from, text }, res, mode) {
     return reply(answer);
   } catch (e) {
     console.error('[whatsapp] error', e);
+    // In the guarded test mode, surface the error message (not the stack) to debug.
+    if (mode === 'json') return res.status(200).json({ error: String((e && e.message) || e) });
     return reply('Sorry — something went wrong on my end. Please try again in a moment.');
   }
 }

@@ -141,7 +141,7 @@ function systemPrompt(member, today) {
     `Today is ${dow}, ${today} (Pacific time). Martis Camp is a members-only community; members can see every family's visit schedule.`,
     `"This weekend" means Friday–Sunday, ${wknd.start} to ${wknd.end}. Compute any other relative dates yourself from today's date and pass explicit YYYY-MM-DD ranges to the tools.`,
     '',
-    'Style: reply like a text message — one or two short sentences, or a short plain list. No markdown headings or bold. Be warm and concise.',
+    'Style: reply like a text message — a sentence or two, or a short list with simple dashes. Plain text ONLY: no markdown, no asterisks, no bold, no headings; WhatsApp shows those symbols literally. Use plain line breaks. Warm and concise.',
     'Rules:',
     "- Answer only from the tools. Never invent people, visits, or gatherings. If there's no data (nobody here, no upcoming visit), say so plainly.",
     '- If a name matches more than one person, ask which one instead of guessing.',
