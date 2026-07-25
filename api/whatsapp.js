@@ -40,7 +40,12 @@ async function handleMessage({ from, text }, res, mode) {
     // and WHATSAPP_AGENT_MODEL can change without a code change.
     const model = process.env.WHATSAPP_AGENT_MODEL || '(code default)';
     console.error(`[whatsapp] error model=${model}`, e); // details go to Vercel function logs
-    return reply('Sorry — something went wrong on my end. Please try again in a moment.');
+    // Overload and rate-limit are transient and worth retrying; everything else
+    // is not. Saying which it is tells the member whether to bother asking again.
+    const busy = e && (e.status === 529 || e.status === 429);
+    return reply(busy
+      ? 'Sorry — I’m getting a lot of questions right now. Ask me again in a minute and I should be back.'
+      : 'Sorry — something went wrong on my end. Please try again in a moment.');
   }
 }
 
