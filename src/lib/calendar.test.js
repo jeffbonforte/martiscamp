@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   buildWeekendDays, dateKey, sameDay, addMonths, monthMatrix, nextMonths,
-  parseWhen, eventStart, isPastEvent, eventDate, buildICS, ARCHIVE_AFTER_MS,
+  parseWhen, eventStart, isPastEvent, eventDate, buildICS,
 } from './calendar.js';
 
 // buildWeekendDays / eventDate / isPastEvent all accept the current date as an
@@ -137,6 +137,24 @@ describe('parseWhen', () => {
     expect(parseWhen('Sat, Aug 15 · 12:00 PM', 2026).getHours()).toBe(12);
   });
 
+  // The time is a free-text field. A bare "p" was previously ignored, leaving
+  // the hour at 6 — an evening dinner became a 6:30 AM one, dropped off the
+  // lists before lunch, and exported to calendars 12 hours early.
+  it('accepts the shorthand people actually type', () => {
+    for (const t of ['6:30 PM', '6:30pm', '6:30p', '6:30 p', '6:30PM', '6:30 p.m.', '6:30P.M.']) {
+      expect(parseWhen(`Sat, Aug 15 · ${t}`, 2026).getHours(), t).toBe(18);
+    }
+    for (const t of ['8:30 AM', '8:30am', '8:30a', '8:30 a.m.']) {
+      expect(parseWhen(`Sat, Aug 15 · ${t}`, 2026).getHours(), t).toBe(8);
+    }
+  });
+
+  it('leaves a bare hour alone rather than guessing', () => {
+    // No meridiem is genuinely ambiguous — 8:30 golf is morning, 6:30 dinner
+    // is evening. Take it literally instead of inventing an intent.
+    expect(parseWhen('Sat, Aug 15 · 6:30', 2026).getHours()).toBe(6);
+  });
+
   it('returns null when unparseable', () => {
     expect(parseWhen('')).toBeNull();
     expect(parseWhen(null)).toBeNull();
@@ -160,14 +178,27 @@ describe('eventStart / isPastEvent', () => {
     expect(isPastEvent(event, new Date(2026, 7, 15, 20, 0))).toBe(false); // 1.5h in
   });
 
-  it('is still upcoming just inside the archive window', () => {
-    const start = new Date(2026, 7, 15, 18, 30).getTime();
-    expect(isPastEvent(event, new Date(start + ARCHIVE_AFTER_MS - 60_000))).toBe(false);
+  // The old rule archived 3h after the start, so a 6:30 dinner vanished at 9:30
+  // while people were still at it. It stays up for the whole day now.
+  it('is still upcoming late the same evening', () => {
+    expect(isPastEvent(event, new Date(2026, 7, 15, 23, 59))).toBe(false);
   });
 
-  it('is past once the archive window has elapsed', () => {
-    const start = new Date(2026, 7, 15, 18, 30).getTime();
-    expect(isPastEvent(event, new Date(start + ARCHIVE_AFTER_MS + 60_000))).toBe(true);
+  it('is upcoming all day, even hours before it starts', () => {
+    expect(isPastEvent(event, new Date(2026, 7, 15, 6, 0))).toBe(false);
+  });
+
+  it('is past at midnight, once the day is over', () => {
+    expect(isPastEvent(event, new Date(2026, 7, 16, 0, 0))).toBe(true);
+    expect(isPastEvent(event, new Date(2026, 7, 16, 9, 0))).toBe(true);
+  });
+
+  // The reported bug, end to end: a get-together entered as "6:30p" today
+  // disappeared from the lists before noon.
+  it('keeps a "6:30p" event visible the same morning', () => {
+    const evening = { when: 'Sat, Aug 15 · 6:30p' };
+    expect(isPastEvent(evening, new Date(2026, 7, 15, 11, 30))).toBe(false);
+    expect(eventStart(evening, new Date(2026, 7, 15)).getHours()).toBe(18);
   });
 
   // An event whose time we cannot read must never silently vanish from the

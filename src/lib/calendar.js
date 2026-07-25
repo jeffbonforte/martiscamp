@@ -102,16 +102,21 @@ export function nextMonths(from, count) {
 // calendar always lands on the upcoming occurrence. Returns null if unparseable.
 export function parseWhen(when, defaultYear) {
   if (!when) return null;
-  const m = when.match(/([A-Z][a-z]{2})\s+(\d{1,2}).*?(\d{1,2}):(\d{2})\s*(AM|PM)?/i);
+  // The time is a free-text field, so accept how people actually write it:
+  // "6:30 PM", "6:30pm", "6:30p", "6:30 p.m." — the meridiem is one letter plus
+  // optional punctuation and "m". Requiring the full "PM" silently dropped a
+  // bare "p" and left the hour at 6, turning an evening dinner into a 6:30 AM
+  // one — which then read as long past and vanished from the lists.
+  const m = when.match(/([A-Z][a-z]{2})\s+(\d{1,2}).*?(\d{1,2}):(\d{2})\s*(?:([AP])\.?\s*M?\.?)?/i);
   if (!m) return null;
   const [, mon, day, hh, mm, ap] = m;
   const monIdx = MONTHS_SHORT.findIndex((x) => x.toLowerCase() === mon.toLowerCase());
   if (monIdx < 0) return null;
   let hour = parseInt(hh, 10);
   if (ap) {
-    const up = ap.toUpperCase();
-    if (up === 'PM' && hour < 12) hour += 12;
-    if (up === 'AM' && hour === 12) hour = 0;
+    const isPm = ap.toUpperCase() === 'P';
+    if (isPm && hour < 12) hour += 12;
+    if (!isPm && hour === 12) hour = 0;
   }
   const now = new Date();
   const year = defaultYear ?? now.getFullYear();
@@ -122,22 +127,26 @@ export function parseWhen(when, defaultYear) {
   return dt;
 }
 
-// A get-together drops off the coming-up lists and the Get-togethers tab this
-// long after it starts, so a dinner that began at 6:30 stops reading as
-// "upcoming" by ~9:30. Pinned to the current year (no next-year roll) so a
-// past occurrence reads as past.
-export const ARCHIVE_AFTER_MS = 3 * 60 * 60 * 1000; // 3 hours
-
-/** Real start Date for a get-together / event from its `when` string. */
+/** Real start Date for a get-together / event from its `when` string. Pinned to
+ *  the current year (no next-year roll) so a past occurrence reads as past. */
 export function eventStart(item, now = new Date()) {
   return parseWhen(item && item.when, now.getFullYear());
 }
 
-/** True once an item is more than ARCHIVE_AFTER_MS past its start time. */
+/**
+ * True once the DAY an item falls on is over — it drops off the lists at
+ * midnight, not a few hours after it starts.
+ *
+ * This used to archive 3 hours past the start time, which meant tonight's 6:30
+ * dinner disappeared at 9:30 while people were still at it, and anything whose
+ * time didn't parse cleanly vanished mid-morning. A get-together is today's
+ * plan for all of today.
+ */
 export function isPastEvent(item, now = new Date()) {
   const start = eventStart(item, now);
   if (!start) return false; // unparseable time → never auto-hide
-  return now.getTime() - start.getTime() > ARCHIVE_AFTER_MS;
+  const endOfThatDay = new Date(start.getFullYear(), start.getMonth(), start.getDate() + 1);
+  return now.getTime() >= endOfThatDay.getTime();
 }
 
 // Parse just the calendar date (ignoring any time) from a when_label like

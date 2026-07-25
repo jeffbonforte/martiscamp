@@ -45,7 +45,11 @@ export function supportsAdaptiveThinking(model) {
 // import-time crash.
 let _client;
 function client() {
-  if (!_client) _client = new Anthropic(); // reads ANTHROPIC_API_KEY
+  // maxRetries above the default 2: a 529 "Overloaded" is transient and the API
+  // marks it x-should-retry, but a WhatsApp reply has no second chance — the
+  // member sees an error and has to retype their question. Retrying costs a few
+  // hundred milliseconds; failing costs the whole exchange.
+  if (!_client) _client = new Anthropic({ maxRetries: 5 }); // reads ANTHROPIC_API_KEY
   return _client;
 }
 
