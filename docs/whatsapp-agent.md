@@ -94,6 +94,7 @@ Write:
 - `mark_days` — puts days on the asker's Martis calendar.
 - `remove_days` — takes days off it.
 - `rsvp_to_event` — records the asker's answer to a get-together.
+- `suggest_family` — files a family someone thinks should be added.
 
 Add a tool by extending the `TOOLS` array and the `execute()` switch in
 `api/_lib/agent.js` plus a query in `api/_lib/db.js`.
@@ -204,14 +205,62 @@ select * from public.wa_notifications where error is not null order by sent_at d
 
 Requires `0016_wa_notifications.sql`.
 
+### Referral notifications
+
+Same machinery, second endpoint: `api/notify-request.js`, fired by a webhook on
+**`add_requests` INSERT**, texting every admin who has a phone. It reuses
+`INVITE_WEBHOOK_SECRET` — same trust boundary (our database calling our
+endpoint), one fewer value to keep in sync — but needs its **own approved
+template** in `TWILIO_REQUEST_CONTENT_SID`:
+
+```
+New referral: {{1}} suggested {{2}} ({{3}}) for Martis Camp Families.
+```
+
+`{{1}}` who suggested it · `{{2}}` the suggested family · `{{3}}` their email.
+
+The claim is per admin and keyed on the request id, so two admins each get one
+text and a re-fired webhook gets none.
+
+> Approval applies per template. A newly created template is **user initiated**
+> only until Meta reviews it — see the warning above; this one needs
+> business-initiated too, since the admin won't have texted first.
+
+Requires `0017_add_request_referrals.sql`, which adds `add_requests.phone` and
+widens the `wa_notifications.kind` constraint to allow `add_request`.
+
+## Referrals
+
+`suggest_family` files a suggested family into **`add_requests`** — the same
+queue the app's "Request to add" dialog writes to, so admins triage everything
+in one place (Admin → Requests) regardless of origin. Name and email are
+required (the email is how an invite would actually reach them); phone and note
+are optional. A second open request for the same email returns
+`already_suggested` rather than filing a duplicate.
+
+Admins with a phone are then texted — see Outbound below.
+
+## The site link
+
+The assistant shares `https://martis.camp` as a bare URL when it would help:
+someone wants the full directory, or a change it can't make (per-person day
+edits, photos). Bare, on its own line — WhatsApp makes it tappable, and markdown
+link syntax renders literally.
+
 ## Nudges
 
-To encourage people to keep their days current, the assistant may raise the next
-occasion households actually plan around — Thanksgiving, the holidays, MLK,
-Presidents' Day, Memorial Day, the Fourth, Labor Day (`api/_lib/occasions.js`).
+To keep the calendar current — and to grow the community — the assistant may
+raise **one** thing per conversation, at most once a week per person.
 
-It only comes up when **all** of these hold, and all are decided in code before
-the model sees anything:
+The single slot is deliberate: two competing asks can never stack up in one
+reply. The calendar takes priority because an unmarked holiday is timely and
+specific; only when there's nothing calendar-shaped to say does it fall back to
+asking for a referral, which is evergreen and keeps.
+
+The calendar ask uses the occasions households actually plan around —
+Thanksgiving, the holidays, MLK, Presidents' Day, Memorial Day, the Fourth,
+Labor Day (`api/_lib/occasions.js`) — and only comes up when **all** of these
+hold, decided in code before the model sees anything:
 
 1. An occasion starts within 70 days.
 2. That member has nothing marked in its window.

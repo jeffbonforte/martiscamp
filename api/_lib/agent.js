@@ -8,7 +8,7 @@ import {
   roster, findMembersByName, favoritesFor,
   attendanceInRange, memberFutureDates, visibleGatherings,
   familyMembers, memberDatesInRange, markAttendance, unmarkAttendance,
-  setRsvp, lastNudgeAt, recordNudge,
+  setRsvp, createAddRequest, lastNudgeAt, recordNudge,
 } from './db.js';
 import {
   todayISO, upcomingWeekend, labelISO, rangeLabel, groupStays, eventDateISO, addDaysISO,
@@ -114,6 +114,20 @@ const TOOLS = [
     },
   },
   {
+    name: 'suggest_family',
+    description: "Pass along a family the asker thinks should be added to Martis Camp Families. Needs their name AND an email address — the email is how they'd actually get invited, so don't call this without one. A mobile number is a nice-to-have. Read the details back before filing it.",
+    input_schema: {
+      type: 'object', additionalProperties: false,
+      properties: {
+        name: { type: 'string', description: 'The family or person being suggested, e.g. "the Ralstons" or "Geoff Ralston"' },
+        email: { type: 'string', description: 'Their email address. Required — ask for it if not offered.' },
+        phone: { type: 'string', description: 'Their mobile number, if the asker happens to know it. Optional.' },
+        note: { type: 'string', description: "Anything else worth passing on — how they know them, which lot they're near. Optional." },
+      },
+      required: ['name', 'email'],
+    },
+  },
+  {
     name: 'rsvp_to_event',
     description: "Record the asker's answer to a get-together. Use the `id` from upcoming_gatherings. Only their own RSVP — never anyone else's. Confirm which get-together and which answer before calling.",
     input_schema: {
@@ -198,6 +212,27 @@ async function markDays(input, ctx) {
     ok: true, marked: rangeLabel(range.start, range.end),
     nights: range.dates.length, people: home.count,
   };
+}
+
+// Deliberately loose — this only needs to catch "the model filed something that
+// obviously isn't an address". Real validation happens when the invite is sent.
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+
+async function suggestFamily(input, ctx) {
+  const name = String(input.name || '').trim();
+  const email = String(input.email || '').trim();
+  if (!name) return { ok: false, error: 'Need a name.' };
+  if (!EMAIL_RE.test(email)) {
+    return { ok: false, error: "That doesn't look like an email address — ask them for it." };
+  }
+  const res = await createAddRequest({
+    name, email, phone: input.phone, note: input.note, requestedBy: ctx.member.id,
+  });
+  if (res.duplicate) {
+    return { ok: false, already_suggested: true, existing_name: res.existingName };
+  }
+  if (!res.ok) return { ok: false, error: res.error };
+  return { ok: true, filed: name, email };
 }
 
 async function removeDays(input, ctx) {
@@ -296,6 +331,8 @@ async function execute(name, input, ctx) {
       return markDays(input, ctx);
     case 'remove_days':
       return removeDays(input, ctx);
+    case 'suggest_family':
+      return suggestFamily(input, ctx);
     case 'rsvp_to_event':
       return setRsvp({ eventSlug: input.event, memberId: ctx.member.id, status: input.status });
     default:
@@ -349,6 +386,18 @@ function systemPrompt(member, today, nudge) {
     '- Afterwards, confirm in one line what actually happened. If a removal reports that nothing was marked, say that plainly instead of claiming you cleared it.',
     '- Only future days can be changed. For anything in the past, or a change too fiddly for text, point them at the app.',
     '',
+    'SUGGESTING FAMILIES',
+    'Martis Camp Families grows by word of mouth, so a suggestion is genuinely useful. Use suggest_family when someone mentions a family who ought to be on here.',
+    '- You need a name and an email address. The email is how they actually get invited, so if it is not offered, ask for it plainly. A mobile number is a bonus, not a requirement — do not push for it.',
+    '- Read the details back before filing, so a mis-heard email gets caught.',
+    '- Once filed, say it has gone to the admins. Do not promise when they will be added.',
+    '- If it comes back already suggested, just say so — no harm done.',
+    '',
+    'THE SITE',
+    'The web app is https://martis.camp — the full directory, photos, the year-ahead calendar, and where per-person edits happen.',
+    '- Share the link when it would actually help: they want to see everything, or they want a change you cannot make from here.',
+    '- Send the bare URL, on its own line. It is tappable as-is; do not dress it up as a markdown link.',
+    '',
     'GET-TOGETHERS',
     'You can record their answer to a get-together with rsvp_to_event — their own answer only, never anyone else\'s.',
     '- Be sure which get-together and which answer before you call it. If more than one is coming up, ask which.',
@@ -358,7 +407,7 @@ function systemPrompt(member, today, nudge) {
       '',
       'ONE THING TO RAISE',
       nudge,
-      'Only after you have answered what they actually asked, and only if the exchange is at a natural stopping point. Ask once, lightly, in your own words, and offer to put it in. If they say no or move on, drop it — do not raise it again.',
+      'Only after you have answered what they actually asked, and only if the exchange is at a natural stopping point. Ask once, lightly, in your own words. If they say no or change the subject, drop it — do not raise it again.',
     ] : []),
   ].join('\n');
 }
@@ -367,19 +416,36 @@ function systemPrompt(member, today, nudge) {
 const NUDGE_COOLDOWN_MS = 7 * 24 * 60 * 60 * 1000;
 
 /**
- * At most one well-timed prompt: the next occasion people plan around, only if
- * this member has nothing marked for it and we haven't asked them recently.
- * Returns a line for the prompt, or null. Throttling is enforced here rather
- * than by asking the model to remember — the model has no reliable clock.
+ * At most ONE thing to raise per conversation, and at most once a week per
+ * person — the single slot is deliberate, so two competing asks can never stack
+ * up in the same reply.
+ *
+ * The calendar takes priority: an unmarked holiday is timely and specific.
+ * Only when there's nothing calendar-shaped to say do we fall back to asking
+ * for a referral, which is evergreen and keeps.
+ *
+ * Throttling is enforced here rather than by asking the model to remember —
+ * the model has no reliable clock, and "don't ask too often" is not a rule a
+ * prompt can keep across separate conversations.
  */
 async function buildNudge(member, today, convKey) {
-  const occ = nextOccasion(today);
-  if (!occ) return null;
   const last = await lastNudgeAt(convKey);
   if (last && Date.now() - new Date(last).getTime() < NUDGE_COOLDOWN_MS) return null;
-  const already = await memberDatesInRange(member.id, occ.start, occ.end);
-  if (already.length) return null;
-  return `${member.name} has nothing on the calendar for ${occ.name} (${rangeLabel(occ.start, occ.end)} — ${occ.start} to ${occ.end}).`;
+
+  const occ = nextOccasion(today);
+  if (occ) {
+    const already = await memberDatesInRange(member.id, occ.start, occ.end);
+    if (!already.length) {
+      return `${member.name} has nothing on the calendar for ${occ.name} `
+        + `(${rangeLabel(occ.start, occ.end)} — ${occ.start} to ${occ.end}). `
+        + 'Ask whether they will be up, and offer to put it in.';
+    }
+  }
+
+  return 'Their calendar is in good shape, so nothing to raise there. Instead you may ask '
+    + 'whether there is another family they think should be on Martis Camp Families — and if '
+    + 'there is, take a name and email (a mobile too if they have it) and file it with '
+    + 'suggest_family.';
 }
 
 /** Run the agent for one inbound message. `history` is prior text turns

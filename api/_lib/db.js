@@ -220,6 +220,59 @@ export async function seedConversation(key, assistantText) {
   } catch { /* table missing → memory off, same as loadConversation */ }
 }
 
+// ---- referrals -----------------------------------------------------------
+// Suggestions from the assistant land in the same `add_requests` queue the
+// app's "Request to add" dialog writes to, so admins triage everything in one
+// place (Admin → Requests) regardless of where it came from.
+
+/**
+ * File a suggested family. Returns { ok, id } — or { ok: false, duplicate: true }
+ * when that email already has an open request, so the assistant can say it's
+ * already on the list instead of silently filing it twice.
+ */
+export async function createAddRequest({ name, email, phone, note, requestedBy }) {
+  if (!db) return { ok: false, error: 'not configured' };
+  const clean = String(email || '').trim().toLowerCase();
+
+  const { data: existing } = await db.from('add_requests')
+    .select('id, name').eq('status', 'open').ilike('email', clean).maybeSingle();
+  if (existing) return { ok: false, duplicate: true, existingName: existing.name };
+
+  const { data, error } = await db.from('add_requests').insert({
+    kind: 'family',
+    name: String(name || '').trim(),
+    email: clean,
+    phone: String(phone || '').trim() || null,
+    note: String(note || '').trim() || null,
+    requested_by: requestedBy,
+    status: 'open',
+  }).select('id').single();
+
+  return error ? { ok: false, error: error.message } : { ok: true, id: data.id };
+}
+
+/** Admins who can actually be texted. Used to route referral notifications. */
+export async function adminsWithPhone() {
+  if (!db) return [];
+  const { data } = await db.from('members')
+    .select('id, name, phone').eq('is_admin', true)
+    .is('archived_at', null).not('phone', 'is', null);
+  return data || [];
+}
+
+/** One add_request plus who suggested it, for the notification. */
+export async function addRequestDetails(id) {
+  if (!db) return null;
+  const { data: req } = await db.from('add_requests')
+    .select('id, name, email, phone, note, requested_by, created_at')
+    .eq('id', id).maybeSingle();
+  if (!req) return null;
+  const { data: by } = req.requested_by
+    ? await db.from('members').select('name').eq('id', req.requested_by).maybeSingle()
+    : { data: null };
+  return { request: req, requestedByName: by?.name || 'A member' };
+}
+
 // ---- outbound invites ----------------------------------------------------
 
 /** Everything the invite push needs, in one round trip's worth of queries. */
