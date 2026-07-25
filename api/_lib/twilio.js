@@ -46,15 +46,35 @@ export async function sendTemplate({ to, contentSid, variables }) {
   const e164 = toE164(to);
   if (!e164) return { ok: false, error: `unusable phone: ${to}` };
 
+  // A stray newline or space around the SID makes Twilio ignore ContentSid and
+  // fall back to a freeform message, which WhatsApp then rejects with 63016 —
+  // an error that points at the message window rather than at the real cause.
+  const sid = String(contentSid).trim();
+  if (!/^HX[0-9a-f]{32}$/i.test(sid)) {
+    return {
+      ok: false,
+      error: `TWILIO_INVITE_CONTENT_SID is not a valid content template SID `
+        + `(expected HX + 32 hex chars, got ${sid.length} chars starting "${sid.slice(0, 4)}")`,
+    };
+  }
+
   try {
     const msg = await client().messages.create({
       from: `whatsapp:${FROM}`,
       to: `whatsapp:${e164}`,
-      contentSid,
+      contentSid: sid,
+      // Numbered string keys, per the Content API. No `body` — sending one
+      // alongside contentSid makes Twilio treat the message as freeform.
       contentVariables: JSON.stringify(variables || {}),
     });
-    return { ok: true, sid: msg.sid, to: e164 };
+    // Twilio accepts asynchronously: `queued`/`accepted` here says nothing about
+    // delivery. Log the SID so a failure in Twilio's own logs can be matched to
+    // this send without guessing from timestamps.
+    console.log(`[twilio] sent sid=${msg.sid} status=${msg.status} template=${sid.slice(0, 8)}… to=${e164}`);
+    return { ok: true, sid: msg.sid, status: msg.status, to: e164 };
   } catch (e) {
-    return { ok: false, error: String((e && e.message) || e), to: e164 };
+    const code = e && e.code ? ` code=${e.code}` : '';
+    console.error(`[twilio] send failed${code} template=${sid.slice(0, 8)}… to=${e164}`, e);
+    return { ok: false, error: `${String((e && e.message) || e)}${code}`, to: e164 };
   }
 }
