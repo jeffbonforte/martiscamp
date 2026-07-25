@@ -6,6 +6,10 @@ import { Landing } from './screens/Landing.jsx';
 import { App } from './App.jsx';
 import { isSupabaseConfigured } from './lib/supabase.js';
 import { getSession, onAuthChange, signOut as sbSignOut } from './lib/api.js';
+import { inject } from '@vercel/analytics';
+
+// Initialize Vercel Analytics
+inject();
 
 // The design system hydrates icons by having Lucide replace each <i data-lucide>
 // with an <svg> (see lib/useLucide.js). That detaches a node React still holds a
