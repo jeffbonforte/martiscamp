@@ -1,7 +1,7 @@
 import React from 'react';
-import { Button } from '../components/index.js';
+import { Button, ActivityFeed } from '../components/index.js';
 import { useLucide } from '../lib/useLucide.js';
-import { PageHead, feedGlyph, openWhatsApp } from './shared.jsx';
+import { PageHead, openWhatsApp } from './shared.jsx';
 
 /** The Updates feed — activity from your favorites + community notices. */
 export function UpdatesScreen({ data, onOpenEvent, onOpenFamily, onPost }) {
@@ -27,21 +27,10 @@ export function UpdatesScreen({ data, onOpenEvent, onOpenFamily, onPost }) {
         <Button onClick={() => openWhatsApp()} style={{ background: '#fff', color: '#157a3d', border: '1px solid #fff' }} iconLeft={<i data-lucide="external-link" style={{ width: 15, height: 15 }} />}>Open WhatsApp group</Button>
       </div>
 
-      <div style={{ background: 'var(--surface-card)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', overflow: 'hidden' }}>
-        {data.feed.map((it, i) => (
-          <button key={it.id} type="button" onClick={() => goto(it)}
-            style={{ display: 'flex', gap: 14, width: '100%', textAlign: 'left', border: 'none', cursor: 'pointer',
-              padding: 'var(--space-4) var(--space-5)', borderBottom: i < data.feed.length - 1 ? '1px solid var(--divider)' : 'none', background: it.unread ? 'var(--pine-50)' : 'transparent' }}>
-            <span style={{ flexShrink: 0, width: 38, height: 38, borderRadius: '50%', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: `color-mix(in srgb, ${it.tone} 16%, var(--snow))`, color: it.tone }}>
-              <i data-lucide={feedGlyph(it.kind)} style={{ width: 17, height: 17 }} />
-            </span>
-            <span style={{ minWidth: 0, flex: 1 }}>
-              <span style={{ font: 'var(--role-body)', color: 'var(--text-body)' }}><b style={{ color: 'var(--text-strong)', fontWeight: 'var(--fw-semibold)' }}>{it.who}</b> {it.text}</span>
-              <span style={{ display: 'block', font: 'var(--text-2xs) var(--font-mono)', color: 'var(--text-faint)', marginTop: 4 }}>{it.when}</span>
-            </span>
-            {it.unread && <span style={{ flexShrink: 0, width: 8, height: 8, borderRadius: '50%', background: 'var(--brand)', marginTop: 8 }} />}
-          </button>
-        ))}
+      <div style={{ background: 'var(--surface-card)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', padding: 'var(--space-5) var(--space-6)' }}>
+        <ActivityFeed
+          items={data.feed.map((it) => ({ id: it.id, actor: it.who, text: it.text, when: it.when, unread: it.unread, tone: it.tone, avatar: it.photo }))}
+          onItemClick={(n) => goto(data.feed.find((it) => it.id === n.id) || n)} />
       </div>
     </div>
   );

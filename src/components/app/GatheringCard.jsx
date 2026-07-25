@@ -36,7 +36,7 @@ export function GatheringCard({ gathering = {}, onRsvp, onAddToCalendar, style =
           </div>
           <div style={{ font: 'var(--fw-regular) var(--text-xl)/1.2 var(--font-display)', color: 'var(--text-strong)' }}>{title}</div>
         </div>
-        {open ? (
+        {!isPrivate && open ? (
           <span style={{
             display: 'inline-flex', alignItems: 'center', gap: 4, padding: '3px 9px', borderRadius: 'var(--radius-pill)',
             background: 'var(--success-soft)', color: 'var(--success)', whiteSpace: 'nowrap',

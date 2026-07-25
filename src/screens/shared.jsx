@@ -7,6 +7,15 @@ export function openWhatsApp(url = WHATSAPP_GROUP_URL) {
   window.open(url, '_blank', 'noopener');
 }
 
+// The Martis Camp WhatsApp assistant — text this number to ask who's up, when
+// favorites are visiting, etc. (see api/whatsapp.js). 2·MARTIS = 262·7847.
+export const WA_ASSISTANT = {
+  e164: '17752627847',
+  display: '+1 (775) 262-7847',
+  vanity: '+1 775 2·MARTIS',
+  href: `https://wa.me/17752627847?text=${encodeURIComponent("Hi Martis — who's up this weekend?")}`,
+};
+
 /** Section header used at the top of most screens. */
 export function PageHead({ eyebrow, title, sub, right }) {
   return (

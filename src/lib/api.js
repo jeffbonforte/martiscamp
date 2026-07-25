@@ -20,6 +20,12 @@ const DAY_DATE = Object.fromEntries(WINDOW.map((d) => [d.key, d.iso]));
 const DATE_DAY = Object.fromEntries(WINDOW.map((d) => [d.iso, d.key]));
 const DAY_ORDER = WINDOW.map((d) => d.key);
 const DAY_LABEL = Object.fromEntries(WINDOW.map((d) => [d.key, d.label]));
+// Inclusive bounds of that window. loadAppData only ever consumes attendance
+// rows inside it (anything else fails the DATE_DAY lookup and is dropped), so
+// the query is bounded here rather than downloading a year of forward planning
+// on every load. Plan-a-visit reads its own horizon via loadVisitPlan().
+const WINDOW_START = WINDOW[0].iso;
+const WINDOW_END = WINDOW[WINDOW.length - 1].iso;
 const WEEKDAY_TO_KEY = { Thu: 'thu', Fri: 'fri', Sat: 'sat', Sun: 'sun', Mon: 'mon', Tue: 'tue', Wed: 'wed' };
 
 // Presence is day-agnostic (people visit any days, not just weekends). "here"
@@ -97,11 +103,15 @@ export async function loadAppData() {
   }
   const session = await getSession();
   const me = session ? await ensureMemberLink(session) : null;
+  // The member id creation uses (current_member_id RPC). Matching against THIS —
+  // rather than the user_id-linked me.id — is what reliably identifies "my own"
+  // get-togethers, since those two can diverge (e.g. legacy duplicate members).
+  const myMemberId = me ? await currentMemberId() : null;
 
   const [familiesRes, membersRes, attendanceRes, eventsRes, rsvpsRes, invitesRes, communityRes, feedRes, favoritesRes] = await Promise.all([
     supabase.from('families').select('*').is('archived_at', null),
     supabase.from('members').select('*').is('archived_at', null),
-    supabase.from('attendance').select('member_id, family_id, date'),
+    supabase.from('attendance').select('member_id, family_id, date').gte('date', WINDOW_START).lte('date', WINDOW_END),
     supabase.from('events').select('*').is('archived_at', null),
     supabase.from('rsvps').select('event_id, member_id, status'),
     supabase.from('event_invites').select('event_id, member_id'),
@@ -153,16 +163,28 @@ export async function loadAppData() {
 
   // Resolve private storage refs (family covers + member photos) to short-lived
   // signed URLs for display. Public/bundled values pass through unchanged.
-  const photoRefs = [];
+  // Covers get TWO signed URLs: a full-res one (profile hero + fallback) and a
+  // small resized `coverThumb` so the little directory/home cards don't download
+  // the multi-megapixel original.
+  const coverRefs = [];
+  const memberRefs = [];
   for (const f of mappedFamilies) {
-    if (parseStorageRef(f.cover)) photoRefs.push(f.cover);
-    for (const m of f.members) if (parseStorageRef(m.photo)) photoRefs.push(m.photo);
+    if (parseStorageRef(f.cover)) coverRefs.push(f.cover);
+    for (const m of f.members) if (parseStorageRef(m.photo)) memberRefs.push(m.photo);
   }
-  if (photoRefs.length) {
-    const signed = await signRefs(photoRefs);
+  if (coverRefs.length || memberRefs.length) {
+    const [full, thumb, member] = await Promise.all([
+      signRefs(coverRefs),                              // full-res: profile hero + card fallback
+      // small thumbnail for cards. resize:'contain' keeps the FULL image + its
+      // aspect ratio (default 'cover' would center-crop server-side, destroying
+      // the family's coverPos framing); the card still crops via CSS objectFit.
+      signRefs(coverRefs, { width: 640, resize: 'contain', quality: 62 }),
+      signRefs(memberRefs),                             // member avatars
+    ]);
     for (const f of mappedFamilies) {
-      if (f.cover in signed) f.cover = signed[f.cover];
-      for (const m of f.members) if (m.photo in signed) m.photo = signed[m.photo];
+      const ref = f.cover;
+      if (ref in full) { f.coverThumb = thumb[ref] || full[ref]; f.cover = full[ref]; }
+      for (const m of f.members) if (m.photo in member) m.photo = member[m.photo];
     }
   }
 
@@ -179,10 +201,12 @@ export async function loadAppData() {
     const invitedIds = invitesByEvent[ev.id] || [];
     const myRow = me ? rs.find((r) => r.member_id === me.id) : null;
     return {
-      id: ev.slug, title: ev.title, amenity: ev.amenity, host: nameById[ev.host_member_id] || '',
+      id: ev.slug, title: ev.title, amenity: ev.amenity, host: nameById[ev.host_member_id] || '', hostId: ev.host_member_id,
+      mine: !!(myMemberId && ev.host_member_id === myMemberId), // did the signed-in member create this?
       day: WEEKDAY_TO_KEY[weekdayTok] || null, when: ev.when_label, where: ev.location,
       capacity: ev.capacity, description: ev.description,
-      visibility: ev.visibility, youInvited: ev.visibility !== 'private' || (me ? invitedIds.includes(me.id) : true),
+      // The host is always "invited" to their own private event (they created it).
+      visibility: ev.visibility, youInvited: ev.visibility !== 'private' || (me ? (me.id === ev.host_member_id || invitedIds.includes(me.id)) : true),
       myRsvp: myRow ? myRow.status : null,
       invited: invitedIds.map((id) => ({ name: nameById[id] })).filter((x) => x.name),
       going: names('going'), maybe: names('maybe'), declined: names('declined'),
@@ -209,7 +233,7 @@ export async function loadAppData() {
   // as themselves (by email) with no family/admin so they can never inherit
   // someone else's identity. `needsSetup` flags the app to onboard them.
   const meOut = me
-    ? { name: me.name, familyId: meFamily ? meFamily.slug : null, isAdmin: !!me.is_admin }
+    ? { id: me.id, name: me.name, familyId: meFamily ? meFamily.slug : null, isAdmin: !!me.is_admin }
     : { name: session?.user?.email || 'You', familyId: null, isAdmin: false, needsSetup: true };
 
   return {
@@ -313,6 +337,29 @@ export async function createGathering(input) {
     }
   }
   return { ok: true, slug: ev.slug };
+}
+
+/** Edit a get-together (host or admin). Updates only the provided fields. */
+export async function updateGathering(slug, input) {
+  if (!isSupabaseConfigured) return { ok: false, offline: true };
+  const patch = {};
+  if (input.title !== undefined) patch.title = input.title || 'Get-together';
+  if (input.amenity !== undefined) patch.amenity = input.amenity || null;
+  if (input.when !== undefined) patch.when_label = input.when || null;
+  if (input.location !== undefined) patch.location = input.location || null;
+  if (input.description !== undefined) patch.description = input.description || null;
+  if (input.visibility !== undefined) patch.visibility = input.visibility === 'private' ? 'private' : 'open';
+  if (input.capacity !== undefined) patch.capacity = input.capacity == null || input.capacity === '' ? null : Number(input.capacity);
+  const { error } = await supabase.from('events').update(patch).eq('slug', slug);
+  return error ? { ok: false, error: error.message } : { ok: true };
+}
+
+/** Delete a get-together (host or admin). Soft-delete: archived, so it's gone
+ * from every view but reversible in the DB. */
+export async function deleteGathering(slug) {
+  if (!isSupabaseConfigured) return { ok: false, offline: true };
+  const { error } = await supabase.from('events').update({ archived_at: new Date().toISOString() }).eq('slug', slug);
+  return error ? { ok: false, error: error.message } : { ok: true };
 }
 
 /**
@@ -497,6 +544,26 @@ export async function revokeInvite(id) {
   return error ? { ok: false, error: error.message } : { ok: true };
 }
 
+// Fully remove an invited person (e.g. a typo'd duplicate) — not just revoke.
+// Archives the member row(s) this invite created (same email + family) so they
+// drop out of the family everywhere (loadAppData filters archived_at IS NULL),
+// then removes the invite. Soft-deletes the member, so it's reversible in the DB.
+export async function deleteInvitee(id) {
+  if (!isSupabaseConfigured) return { ok: false, offline: true };
+  const { data: inv } = await supabase.from('invites').select('email, family_id').eq('id', id).maybeSingle();
+  if (inv && inv.email) {
+    let mq = supabase.from('members').update({ archived_at: new Date().toISOString() })
+      .eq('email', inv.email).is('archived_at', null);
+    if (inv.family_id) mq = mq.eq('family_id', inv.family_id);
+    await mq;
+  }
+  // Remove the invite entirely; if a delete policy isn't granted, fall back to
+  // revoking so sign-in is still disabled.
+  const del = await supabase.from('invites').delete().eq('id', id);
+  if (del.error) await supabase.from('invites').update({ revoked_at: new Date().toISOString() }).eq('id', id);
+  return { ok: true };
+}
+
 // --- "Request to add" queue -----------------------------------------------
 
 export async function submitAddRequest({ kind, name, email, note }) {
@@ -589,13 +656,17 @@ function parseStorageRef(ref) {
 /** A resolved display URL is a signed storage URL — never persist it back. */
 const isSignedStorageUrl = (v) => typeof v === 'string' && v.includes('/storage/v1/object/sign/');
 
-/** Resolve a batch of unique refs to signed URLs (unresolvable → null). */
-async function signRefs(refs) {
+/** Resolve a batch of unique refs to signed URLs (unresolvable → null).
+ *  Pass `transform` (e.g. { width, quality }) to request a resized render — used
+ *  to serve small thumbnails to the little cards instead of the full-res original
+ *  (relies on Supabase image transformations; callers fall back to the full URL). */
+async function signRefs(refs, transform) {
   const out = {};
+  const opts = transform ? { transform } : undefined;
   await Promise.all([...new Set(refs)].map(async (ref) => {
     const p = parseStorageRef(ref);
     if (!p) { out[ref] = ref; return; } // public/bundled — pass through
-    const { data, error } = await supabase.storage.from(p.bucket).createSignedUrl(p.path, SIGN_TTL);
+    const { data, error } = await supabase.storage.from(p.bucket).createSignedUrl(p.path, SIGN_TTL, opts);
     out[ref] = error ? null : data.signedUrl;
   }));
   return out;

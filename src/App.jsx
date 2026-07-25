@@ -1,11 +1,12 @@
 import React from 'react';
-import { Sidebar, Avatar } from './components/index.js';
+import { Sidebar, Avatar, BottomTabBar } from './components/index.js';
 import { useLucide } from './lib/useLucide.js';
 import { useWeather } from './lib/weather.js';
 import { LOGO_BADGE } from './lib/images.js';
 import { DATA } from './data/mockData.js';
-import { loadAppData, persistFavorite, persistRsvp } from './lib/api.js';
-import { WhatsButton, feedGlyph } from './screens/shared.jsx';
+import { loadAppData, persistFavorite, persistRsvp, deleteGathering } from './lib/api.js';
+import { feedGlyph, WA_ASSISTANT } from './screens/shared.jsx';
+import { isPastEvent } from './lib/calendar.js';
 
 import { WeekendScreen } from './screens/Weekend.jsx';
 import { DirectoryScreen } from './screens/Directory.jsx';
@@ -23,6 +24,7 @@ import { EditProfileDialog } from './screens/dialogs/EditProfileDialog.jsx';
 import { AddMemberDialog } from './screens/dialogs/AddMemberDialog.jsx';
 import { ToastProvider } from './lib/toast.jsx';
 import { AddToCalendarDialog } from './screens/dialogs/AddToCalendarDialog.jsx';
+import { WhatsAppQR } from './components/app/WhatsAppQR.jsx';
 
 const seasonOf = (d) => { const m = d.getMonth(); return (m <= 1 || m === 11) ? 'winter' : m <= 4 ? 'spring' : m <= 7 ? 'summer' : 'fall'; };
 
@@ -35,12 +37,14 @@ export function App({ onSignOut }) {
   const [route, setRoute] = React.useState(null);
   const [planOpen, setPlanOpen] = React.useState(false);
   const [postType, setPostType] = React.useState('gathering');
+  const [editEvent, setEditEvent] = React.useState(null);
   const [favorites, setFavorites] = React.useState(new Set());
   const [rsvpMap, setRsvpMap] = React.useState({});
   const [feedOpen, setFeedOpen] = React.useState(false);
   const [calEvent, setCalEvent] = React.useState(null);
   const [editTarget, setEditTarget] = React.useState(null);
   const [addMemberFor, setAddMemberFor] = React.useState(null);
+  const [qrOpen, setQrOpen] = React.useState(false);
 
   React.useEffect(() => {
     let alive = true;
@@ -103,7 +107,9 @@ export function App({ onSignOut }) {
   const openMember = (f, m) => setRoute({ type: 'member', item: f, member: m });
   const setRsvp = (id, v) => { setRsvpMap((m) => ({ ...m, [id]: v })); persistRsvp(id, v); };
   const addToCalendar = (g) => setCalEvent(g);
-  const openPost = (type) => { setPostType(type); setPlanOpen(true); };
+  const openPost = (type) => { setEditEvent(null); setPostType(type); setPlanOpen(true); };
+  const editGathering = (ev) => { setEditEvent(ev); setPlanOpen(true); };
+  const deleteGatheringEvent = async (ev) => { await deleteGathering(ev.id); setRoute(null); reload(); };
   // Refresh the dataset after a write, and re-point the open profile route at the
   // freshly-loaded objects (which carry resolved signed photo URLs) — otherwise
   // the profile keeps rendering the stale pre-reload object and its cover/photo
@@ -131,7 +137,7 @@ export function App({ onSignOut }) {
     { key: 'weekend', label: 'Here now', icon: 'calendar-check' },
     { key: 'directory', label: 'Directory', icon: 'users' },
     { key: 'calendar', label: 'Calendar', icon: 'calendar' },
-    { key: 'gatherings', label: 'Get-togethers', icon: 'party-popper', badge: data.gatherings.length },
+    { key: 'gatherings', label: 'Get-togethers', icon: 'party-popper', badge: data.gatherings.filter((g) => !isPastEvent(g)).length || undefined },
     { key: 'updates', label: 'Updates', icon: 'bell', badge: unread || undefined },
   ];
   if (me.isAdmin) nav.push({ key: 'admin', label: 'Admin', icon: 'shield' });
@@ -149,7 +155,8 @@ export function App({ onSignOut }) {
       onBack={() => openFamily(route.item)} onOpenFamily={() => openFamily(route.item)} onOpenEvent={openEvent} />;
   } else if (route?.type === 'event') {
     const ev = route.item;
-    body = <EventScreen event={ev} data={data} myRsvp={rsvpMap[ev.id] ?? ev.myRsvp} onRsvp={(v) => setRsvp(ev.id, v)} onBack={() => setRoute(null)} onAddCal={addToCalendar} />;
+    body = <EventScreen event={ev} data={data} myRsvp={rsvpMap[ev.id] ?? ev.myRsvp} onRsvp={(v) => setRsvp(ev.id, v)} onBack={() => setRoute(null)} onAddCal={addToCalendar}
+      onEdit={() => editGathering(ev)} onDelete={() => deleteGatheringEvent(ev)} />;
   } else if (view === 'weekend') {
     body = <WeekendScreen data={data} season={season} favorites={favorites} onOpenFamily={openFamily}
       onEditFamily={() => myFam && setEditTarget({ type: 'family', family: myFam })}
@@ -159,7 +166,7 @@ export function App({ onSignOut }) {
   } else if (view === 'directory') {
     body = <DirectoryScreen data={data} favorites={favorites} onToggleFav={toggleFav} onOpen={openFamily} />;
   } else if (view === 'calendar') {
-    body = <CalendarScreen data={data} season={season} favorites={favorites} onOpenEvent={openEvent} onPlanVisit={() => go('plan')} />;
+    body = <CalendarScreen data={data} season={season} favorites={favorites} onOpenEvent={openEvent} onPlanVisit={() => go('plan')} onOpenFamily={openFamily} onOpenMember={openMember} />;
   } else if (view === 'plan') {
     body = <PlanVisit data={data} onBack={() => go('calendar')} />;
   } else if (view === 'gatherings') {
@@ -177,6 +184,13 @@ export function App({ onSignOut }) {
     <div className="shell">
       <div className="desktop-nav">
         <Sidebar items={nav} active={route ? null : view} onSelect={go} logo={LOGO_BADGE}
+          belowNav={(
+            <button type="button" onClick={() => setQrOpen(true)} title="QR code to chat with the assistant on WhatsApp"
+              style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', padding: '9px var(--space-3)', border: 'none', cursor: 'pointer', textAlign: 'left', borderRadius: 'var(--radius-md)', width: '100%', background: 'transparent', color: 'var(--text-body)', font: 'var(--fw-medium) var(--text-sm)/1 var(--font-sans)' }}>
+              <i data-lucide="qr-code" style={{ width: 18, height: 18, color: 'var(--text-muted)' }} />
+              <span style={{ flex: 1 }}>WhatsApp QR</span>
+            </button>
+          )}
           footer={<button type="button" onClick={() => go('account')} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 4px', width: '100%', border: 'none', cursor: 'pointer', borderRadius: 'var(--radius-md)', textAlign: 'left', background: (!route && view === 'account') ? 'var(--brand-soft)' : 'transparent' }}>
             <Avatar name={me.name} src={myMember && myMember.photo} size="sm" />
             <div style={{ minWidth: 0, flex: 1 }}>
@@ -193,7 +207,20 @@ export function App({ onSignOut }) {
             <i data-lucide="map-pin" style={{ width: 16, height: 16 }} /> Martis Camp · Truckee, CA
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-            <WhatsButton size="sm" label="WhatsApp" />
+            <div style={{ display: 'inline-flex', alignItems: 'stretch', borderRadius: 'var(--radius-pill)', background: '#1FA855', color: '#fff', overflow: 'hidden', whiteSpace: 'nowrap' }}>
+              <a href={WA_ASSISTANT.href} target="_blank" rel="noopener"
+                title={`Ask the Martis assistant on WhatsApp · ${WA_ASSISTANT.display}`}
+                style={{ display: 'inline-flex', alignItems: 'center', gap: 7, textDecoration: 'none', color: '#fff',
+                  padding: '7px 12px', font: 'var(--fw-semibold) var(--text-xs)/1 var(--font-sans)' }}>
+                <i data-lucide="message-circle" style={{ width: 15, height: 15 }} />
+                <span style={{ fontVariantNumeric: 'tabular-nums' }}>{WA_ASSISTANT.vanity}</span>
+              </a>
+              <button type="button" onClick={() => setQrOpen(true)} aria-label="Show WhatsApp QR code" title="Show a QR code to scan"
+                style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: '0 10px', border: 'none',
+                  borderLeft: '1px solid rgba(255,255,255,.3)', background: 'transparent', color: '#fff', cursor: 'pointer' }}>
+                <i data-lucide="qr-code" style={{ width: 15, height: 15 }} />
+              </button>
+            </div>
             <button type="button" aria-label="Notifications" onClick={() => setFeedOpen((o) => !o)}
               style={{ position: 'relative', display: 'inline-flex', border: 'none', background: feedOpen ? 'var(--surface-sunk)' : 'transparent', cursor: 'pointer', padding: 8, borderRadius: 'var(--radius-md)' }}>
               <i data-lucide="bell" style={{ width: 20, height: 20, color: feedOpen ? 'var(--brand)' : 'var(--text-muted)' }} />
@@ -238,20 +265,19 @@ export function App({ onSignOut }) {
         )}
       </div>
 
-      {/* Mobile bottom tab bar */}
-      <nav className="mobile-nav tabbar">
-        {nav.map((it) => (
-          <button key={it.key} type="button" data-on={!route && view === it.key} onClick={() => go(it.key)}>
-            <i data-lucide={it.icon} style={{ width: 22, height: 22 }} />
-            <span>{it.label.split(' ')[0]}</span>
-          </button>
-        ))}
-      </nav>
+      {/* Mobile bottom tab bar — DS v1.1 BottomTabBar */}
+      <div className="mobile-nav" style={{ position: 'fixed', left: 0, right: 0, bottom: 0, zIndex: 250 }}>
+        <BottomTabBar
+          items={nav.map((it) => ({ id: it.key, label: it.label.split(' ')[0], icon: it.icon }))}
+          active={route ? null : view} onChange={go}
+          style={{ width: '100%', background: 'color-mix(in srgb, var(--surface-card) 92%, transparent)' }} />
+      </div>
 
-      <HostDialog open={planOpen} data={data} initialType={postType} onClose={() => setPlanOpen(false)} onCreated={reload} />
+      <HostDialog open={planOpen} data={data} initialType={postType} editEvent={editEvent} onClose={() => { setPlanOpen(false); setEditEvent(null); }} onCreated={reload} />
       <EditProfileDialog target={editTarget} weekendDays={data.weekendDays} onClose={() => setEditTarget(null)} onSaved={bump} onReload={reload} />
       <AddMemberDialog family={addMemberFor} open={!!addMemberFor} onClose={() => setAddMemberFor(null)} onCreated={reload} />
       <AddToCalendarDialog event={calEvent} onClose={() => setCalEvent(null)} />
+      <WhatsAppQR open={qrOpen} onClose={() => setQrOpen(false)} href={WA_ASSISTANT.href} number={WA_ASSISTANT.display} vanity={WA_ASSISTANT.vanity} />
     </div>
     </ToastProvider>
   );

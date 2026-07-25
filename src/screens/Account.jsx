@@ -44,7 +44,7 @@ export function AccountScreen({ me, member, family, onEditProfile, onSignOut }) 
       <Card style={{ marginBottom: 'var(--space-5)' }}>
         <div style={{ font: 'var(--role-h3)', color: 'var(--text-strong)', marginBottom: 'var(--space-2)' }}>Notifications</div>
         <div style={{ font: 'var(--role-small)', color: 'var(--text-muted)', marginBottom: 'var(--space-3)' }}>What lands in your Updates feed and gets you pinged.</div>
-        <PrefRow title="New get-togethers" desc="When a neighbor hosts golf, a ski run, or dinner" on={prefs.gatherings} onToggle={set('gatherings')} />
+        <PrefRow title="New get-togethers" desc="When another family hosts golf, a ski run, or dinner" on={prefs.gatherings} onToggle={set('gatherings')} />
         <PrefRow title="Invites" desc="When you're invited to a private get-together" on={prefs.invites} onToggle={set('invites')} />
         <PrefRow title="Arrivals from favorites" desc="When families or people you favorite are coming up" on={prefs.arrivals} onToggle={set('arrivals')} />
         <PrefRow title="Announcements" desc="Community and admin announcements" on={prefs.announcements} onToggle={set('announcements')} />

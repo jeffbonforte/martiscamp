@@ -29,10 +29,14 @@ function MemberDot({ m, tone, first }) {
  * Pass `cover` as a fully-resolved image URL. Falls back to a tinted panel.
  */
 export function FamilyCard({
-  family = {}, cover, onOpen, favorite, onToggleFavorite, style = {},
+  family = {}, cover, coverFallback, onOpen, favorite, onToggleFavorite, style = {},
 }) {
   const { name = 'Family', address, members = [], interests = [], presence, tone = 'var(--pine-600)', coverPos } = family;
   const [hover, setHover] = React.useState(false);
+  // Show the small thumbnail; if it fails (e.g. resize unsupported), swap to the
+  // full-res URL so a cover never disappears.
+  const [coverErr, setCoverErr] = React.useState(false);
+  const coverSrc = coverErr && coverFallback ? coverFallback : cover;
   const here = presence && presence.here;
 
   const initials = (n) => n.trim().split(/\s+/).map((p) => p[0]).slice(0, 2).join('').toUpperCase();
@@ -54,9 +58,13 @@ export function FamilyCard({
     >
       {/* Cover banner */}
       <div style={{ position: 'relative', height: 128, background: `color-mix(in srgb, ${tone} 22%, var(--snow))` }}>
-        {cover && (
-          <img src={cover} alt=""
-            onError={(e) => { e.currentTarget.style.opacity = '0'; }} onLoad={(e) => { e.currentTarget.style.opacity = '1'; }}
+        {coverSrc && (
+          <img src={coverSrc} alt="" loading="lazy" decoding="async"
+            onError={(e) => {
+              if (!coverErr && coverFallback && coverFallback !== cover) setCoverErr(true); // thumb failed → full-res
+              else e.currentTarget.style.opacity = '0'; // give up → tinted panel
+            }}
+            onLoad={(e) => { e.currentTarget.style.opacity = '1'; }}
             style={{
               width: '100%', height: '100%', objectFit: 'cover', objectPosition: coverPos || 'center 45%',
               display: 'block', transform: hover ? 'scale(1.04)' : 'scale(1)',

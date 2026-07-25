@@ -44,7 +44,7 @@ export const DATA = {
         { name: 'Tessa Bonforte', role: 'Kid · 14', photo: '/assets/images/family/tessa.jpg', tone: 'var(--act-social)', days: ['fri', 'sat', 'sun'], interests: ['pool', 'tennis', 'beach'] },
         { name: 'Geo Bonforte', role: 'Kid · 11', photo: '/assets/images/family/geo.jpg', tone: 'var(--act-golf)', days: ['fri', 'sat'], interests: ['puttputt', 'pool'] },
       ] },
-    { id: 'bell', name: 'Bell', address: '12 Lookout Loop', hometown: 'Palo Alto, CA', cover: 'lodge.jpg',
+    { id: 'bell', name: 'Bell', address: '12 Lookout Loop', hometown: 'Palo Alto, CA', cover: 'venue-clubhouse-summer.jpg',
       tone: 'var(--pine-600)', interests: ['ski', 'golf', 'tennis'],
       presence: { here: true, label: 'Up at the Camp', days: ['fri', 'sat', 'sun'] },
       members: [
@@ -53,7 +53,7 @@ export const DATA = {
         { name: 'Ada Bell', role: 'Kid · 14', photo: null, tone: 'var(--lake-600)', days: ['fri', 'sat', 'sun'], interests: ['ski', 'pool'] },
         { name: 'Cole Bell', role: 'Kid · 11', photo: null, tone: 'var(--act-hike)', days: ['fri', 'sat'], interests: ['puttputt', 'pool'] },
       ] },
-    { id: 'kwan', name: 'Kwan', address: '48 Mystic Ridge', hometown: 'Seattle, WA', cover: 'ski-lodge.jpg',
+    { id: 'kwan', name: 'Kwan', address: '48 Mystic Ridge', hometown: 'Seattle, WA', cover: 'activity-skiing-winter.jpg',
       tone: 'var(--cedar-600)', interests: ['golf', 'pool', 'hike'],
       presence: { here: true, label: 'Here Fri–Sat', days: ['fri', 'sat'] },
       members: [
@@ -61,14 +61,14 @@ export const DATA = {
         { name: 'Lily Kwan', role: 'Parent', photo: null, tone: 'var(--lake-600)', phone: '(530) 555-0132', email: 'lily@kwan.family', days: ['fri', 'sat'], interests: ['pool', 'hike'] },
         { name: 'Owen Kwan', role: 'Kid · 9', photo: null, tone: 'var(--act-golf)', days: ['fri', 'sat'], interests: ['puttputt'] },
       ] },
-    { id: 'ford', name: 'Ford', address: '7 Camp Cir', hometown: 'Sacramento, CA', cover: 'family-barn.jpg',
+    { id: 'ford', name: 'Ford', address: '7 Camp Cir', hometown: 'Sacramento, CA', cover: 'venue-family_barn-summer.jpg',
       tone: 'var(--act-dining)', interests: ['tennis', 'dining', 'social'],
       presence: { here: false, label: 'Away', days: [] },
       members: [
         { name: 'Mia Ford', role: 'Parent', photo: null, tone: 'var(--act-dining)', phone: '(530) 555-0141', email: 'mia@ford.family', days: [], interests: ['tennis', 'dining'] },
         { name: 'Jake Ford', role: 'Parent', photo: null, tone: 'var(--stone-600)', phone: '(530) 555-0142', email: 'jake@ford.family', days: [], interests: ['golf'] },
       ] },
-    { id: 'alvarez', name: 'Alvarez', address: '22 Sabin Way', hometown: 'Reno, NV', cover: 'treehouse-park.jpg',
+    { id: 'alvarez', name: 'Alvarez', address: '22 Sabin Way', hometown: 'Reno, NV', cover: 'venue-treehouse_park-summer.jpg',
       tone: 'var(--lake-600)', interests: ['ski', 'hike', 'cafe'],
       presence: { here: true, label: 'Arriving Sat', days: ['sat', 'sun'] },
       members: [
@@ -77,14 +77,14 @@ export const DATA = {
         { name: 'Nico Alvarez', role: 'Kid · 12', photo: null, tone: 'var(--cedar-600)', days: ['sat', 'sun'], interests: ['ski', 'puttputt'] },
         { name: 'Elle Alvarez', role: 'Kid · 8', photo: null, tone: 'var(--act-social)', days: ['sat'], interests: ['pool'] },
       ] },
-    { id: 'okafor', name: 'Okafor', address: '31 Retreat Rd', hometown: 'Los Angeles, CA', cover: 'camp-lodge-winter-aerial.jpg',
+    { id: 'okafor', name: 'Okafor', address: '31 Retreat Rd', hometown: 'Los Angeles, CA', cover: 'hero-camp_aerial-winter.jpg',
       tone: 'var(--act-pool)', interests: ['pool', 'beach', 'social'],
       presence: { here: false, label: 'Away', days: [] },
       members: [
         { name: 'Chi Okafor', role: 'Parent', photo: null, tone: 'var(--act-pool)', phone: '(530) 555-0161', email: 'chi@okafor.family', days: [], interests: ['hike', 'beach'] },
         { name: 'Ada Okafor', role: 'Kid · 10', photo: null, tone: 'var(--act-social)', days: [], interests: ['pool'] },
       ] },
-    { id: 'reyes', name: 'Reyes', address: '5 Aspen Grove', hometown: 'Denver, CO', cover: 'golf-summer.jpg',
+    { id: 'reyes', name: 'Reyes', address: '5 Aspen Grove', hometown: 'Denver, CO', cover: 'activity-golf-summer.jpg',
       tone: 'var(--act-golf)', interests: ['golf', 'tennis', 'dining'],
       presence: { here: true, label: 'Here all week', days: ['thu', 'fri', 'sat', 'sun', 'mon', 'tue', 'wed'] },
       members: [

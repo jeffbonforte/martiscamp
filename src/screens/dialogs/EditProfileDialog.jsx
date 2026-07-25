@@ -9,7 +9,7 @@ const AMENITY_KEYS = Object.keys(AMENITIES);
 // Shared, generic Martis Camp scenery only — NEVER any family's personal photo.
 // A family's own photo comes solely from their private "Upload a cover" (which
 // is not shared with, or visible to, other families).
-const COVER_OPTIONS = ['lodge.jpg', 'ski-lodge.jpg', 'family-barn.jpg', 'treehouse-park.jpg', 'golf-summer.jpg', 'camp-lodge-winter-aerial.jpg'];
+const COVER_OPTIONS = ['venue-clubhouse-summer.jpg', 'activity-skiing-winter.jpg', 'venue-family_barn-summer.jpg', 'venue-treehouse_park-summer.jpg', 'activity-golf-summer.jpg', 'hero-camp_aerial-winter.jpg', 'hero-snowy_meadow-winter.jpg', 'hero-autumn_lodge-fall.jpg'];
 
 /**
  * Edit a family or a member. Matches the prototype: writes back onto the data
@@ -127,7 +127,7 @@ export function EditProfileDialog({ target, weekendDays, onClose, onSaved, onRel
               <Input label="Role" value={form.role || ''} onChange={(e) => set('role', e.target.value)} placeholder="Parent · Kid · 14" />
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-              <Input label="Phone" value={form.phone || ''} onChange={(e) => set('phone', e.target.value)} leading={<i data-lucide="phone" style={{ width: 15, height: 15 }} />} />
+              <Input label="Phone" value={form.phone || ''} onChange={(e) => set('phone', e.target.value)} leading={<i data-lucide="phone" style={{ width: 15, height: 15 }} />} hint="Use your WhatsApp mobile number — it's how the Martis WhatsApp assistant recognizes you." />
               <Input label="Email" value={form.email || ''} onChange={(e) => set('email', e.target.value)} leading={<i data-lucide="mail" style={{ width: 15, height: 15 }} />} />
             </div>
             <ChipMulti label="Interests" options={AMENITY_KEYS} value={form.interests} onToggle={(v) => toggle('interests', v)} labelOf={(k) => AMENITIES[k].label} />

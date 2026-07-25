@@ -10,11 +10,12 @@ export function VisitPill({ range, length, style = {} }) {
   return (
     <span style={{
       display: 'inline-flex', alignItems: 'center', gap: 7, padding: '6px 12px',
-      borderRadius: 'var(--radius-pill)', background: 'var(--brand-soft)', color: 'var(--pine-800)', ...style,
+      borderRadius: 'var(--radius-pill)', background: 'var(--brand-soft)', color: 'var(--pine-800)',
+      whiteSpace: 'nowrap', maxWidth: '100%', ...style,
     }}>
-      <i data-lucide="calendar-range" style={{ width: 14, height: 14 }} />
-      <span style={{ font: 'var(--fw-medium) var(--text-xs)/1 var(--font-mono)' }}>{range}</span>
-      {length ? <span style={{ font: 'var(--fw-regular) var(--text-xs)/1 var(--font-sans)', color: 'var(--pine-600)' }}>· {length}</span> : null}
+      <i data-lucide="calendar-range" style={{ width: 14, height: 14, flexShrink: 0 }} />
+      <span style={{ font: 'var(--fw-medium) var(--text-xs)/1 var(--font-mono)', whiteSpace: 'nowrap' }}>{range}</span>
+      {length ? <span style={{ font: 'var(--fw-regular) var(--text-xs)/1 var(--font-sans)', color: 'var(--pine-600)', whiteSpace: 'nowrap' }}>· {length}</span> : null}
     </span>
   );
 }
@@ -64,7 +65,7 @@ export function SeasonTimeline({ months = [], rows = [], today, style = {} }) {
         <div />
         <div style={{ display: 'flex', gap: 'var(--space-4)', alignItems: 'center', font: 'var(--fw-regular) var(--text-2xs)/1 var(--font-sans)', color: 'var(--text-faint)' }}>
           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}><span style={{ width: 14, height: 8, borderRadius: 'var(--radius-pill)', background: 'var(--pine-700)', display: 'inline-block' }} />Your visits</span>
-          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}><span style={{ width: 14, height: 8, borderRadius: 'var(--radius-pill)', background: 'var(--pine-300)', display: 'inline-block' }} />Neighbors</span>
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}><span style={{ width: 14, height: 8, borderRadius: 'var(--radius-pill)', background: 'var(--pine-300)', display: 'inline-block' }} />Other families</span>
           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}><span style={{ width: 2, height: 10, background: 'var(--cedar-500)', display: 'inline-block' }} />Today</span>
         </div>
       </div>

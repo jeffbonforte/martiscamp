@@ -12,6 +12,8 @@ the database automatically (no code change).
 | `migrations/0001_schema.sql` | All tables, enums (via CHECK), indexes, `updated_at` triggers |
 | `migrations/0002_rls.sql`    | RLS: read shared, write own, admin bypass; helper functions |
 | `migrations/0003_seed.sql`   | Seed families/members/attendance/get-togethers/RSVPs/community/feed (July 2025) |
+| `migrations/0013_member_gate.sql` | Reads require a linked member row, not just a session; freezes privileged `members` columns; private photo buckets |
+| `migrations/0014_signup_gate.sql` | Before-User-Created auth hook: only emails on `invites` may sign up (backfills the allowlist first) |
 
 ## Set up (either path)
 
@@ -60,8 +62,23 @@ revoked.
   `jeff@bonforte.com` (linked to the Bonforte family, marked admin).
 - On first sign-in the app links `auth.users.id` → the matching `members` row by
   email (`ensureMemberLink` in `src/lib/api.js`).
-- Enforce the invite gate server-side with an Auth Hook / Edge Function in
-  production (the client link is convenience, not security).
+- **A session is not membership.** Magic-link sign-in creates an auth user for
+  any email, so `authenticated` alone proves nothing. Since `0013_member_gate.sql`
+  every shared read requires a **linked `members` row** (`public.is_member()`), not
+  just a session — an uninvited signer-in gets a session and sees an empty app.
+  This is enforced in RLS, so it holds regardless of how the session was obtained.
+- **Sign-up is gated on `invites`.** `0014_signup_gate.sql` defines a
+  Before-User-Created auth hook (`public.restrict_signup_to_invites`) that
+  rejects any email not on the allowlist, so an uninvited address can't create an
+  auth user at all. It fires only on user *creation*, so existing sign-ins are
+  unaffected. **The migration defines the hook but does not enable it** — switch
+  it on at Dashboard → Authentication → Hooks → Before User Created.
+  The hook is the front door; `0013` is the backstop that still holds if the hook
+  is ever disabled or misconfigured. Keep both.
+- **Privileged columns are frozen.** `members.is_admin`, `is_account`, `user_id`,
+  and `family_id` can't be set by a non-admin via PostgREST (trigger
+  `guard_member_privileges`, `0013`) — otherwise any member could self-promote,
+  since `members_update` allows editing your own family with no column limit.
 
 ## What's wired vs. next
 **Wired now (when configured):** magic-link auth + session gate; reads for

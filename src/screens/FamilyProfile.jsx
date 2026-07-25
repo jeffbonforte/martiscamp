@@ -1,5 +1,5 @@
 import React from 'react';
-import { Avatar, AmenityTag, Badge, Button, Card } from '../components/index.js';
+import { Avatar, AmenityTag, Badge, Button, Card, Tabs } from '../components/index.js';
 import { useLucide } from '../lib/useLucide.js';
 import { coverUrl } from '../lib/images.js';
 import { chipStyle } from './shared.jsx';
@@ -7,6 +7,7 @@ import { ScheduleView } from './ScheduleView.jsx';
 
 export function FamilyProfileScreen({ family, data, favorites, onToggleFav, canEdit, onEdit, onAddMember, onBack, onOpenEvent, onOpenMember }) {
   const [who, setWho] = React.useState('family'); // 'family' or member name
+  const [section, setSection] = React.useState('members'); // 'members' | 'schedule'
   const fav = favorites.has(family.id);
   const attendees = who === 'family' ? family.members : family.members.filter((m) => m.name === who);
   useLucide();
@@ -19,7 +20,7 @@ export function FamilyProfileScreen({ family, data, favorites, onToggleFav, canE
 
       {/* Cover */}
       <div style={{ position: 'relative', borderRadius: 'var(--radius-xl)', overflow: 'hidden', boxShadow: 'var(--shadow-md)', marginBottom: 'var(--space-6)', background: `color-mix(in srgb, ${family.tone} 30%, var(--pine-900))`, minHeight: 240 }}>
-        <img src={coverUrl(family.cover || 'lodge.jpg')} alt=""
+        <img src={coverUrl(family.cover || 'venue-clubhouse-summer.jpg')} alt=""
           onError={(e) => { e.currentTarget.style.opacity = '0'; }} onLoad={(e) => { e.currentTarget.style.opacity = '1'; }}
           style={{ position: 'absolute', inset: 0, width: '100%', height: 240, objectFit: 'cover', objectPosition: family.coverPos || 'center 55%', display: 'block' }} />
         <div style={{ position: 'absolute', inset: 0, height: 240, background: 'linear-gradient(to top, rgba(20,15,10,.8) 0%, rgba(20,15,10,.2) 46%, rgba(20,15,10,0) 72%)' }} />
@@ -44,10 +45,16 @@ export function FamilyProfileScreen({ family, data, favorites, onToggleFav, canE
         </div>
       </div>
 
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 'var(--space-8)' }}>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 'var(--space-6)' }}>
         {family.interests.map((a) => <AmenityTag key={a} amenity={a} />)}
       </div>
 
+      <Tabs
+        tabs={[{ id: 'members', label: 'Members', count: family.members.length }, { id: 'schedule', label: 'Schedule' }]}
+        active={section} onChange={setSection}
+        style={{ marginBottom: 'var(--space-6)' }} />
+
+      {section === 'members' && (<>
       {/* Members */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', marginBottom: 'var(--space-4)' }}>
         <div style={{ font: 'var(--role-h2)', color: 'var(--text-strong)' }}>Family members</div>
@@ -79,7 +86,9 @@ export function FamilyProfileScreen({ family, data, favorites, onToggleFav, canE
           </Card>
         ))}
       </div>
+      </>)}
 
+      {section === 'schedule' && (<>
       {/* Schedule */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, marginBottom: 'var(--space-4)', flexWrap: 'wrap' }}>
         <div style={{ font: 'var(--role-h2)', color: 'var(--text-strong)' }}>{who === 'family' ? 'Upcoming days' : `${who.split(' ')[0]}'s schedule`}</div>
@@ -89,6 +98,7 @@ export function FamilyProfileScreen({ family, data, favorites, onToggleFav, canE
         </div>
       </div>
       <ScheduleView attendees={attendees} data={data} onOpenEvent={onOpenEvent} />
+      </>)}
     </div>
   );
 }

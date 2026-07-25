@@ -4,7 +4,7 @@ import { useLucide } from '../lib/useLucide.js';
 import { PageHead } from './shared.jsx';
 import { dateKey } from '../lib/calendar.js';
 import {
-  listInvites, revokeInvite, createMember,
+  listInvites, revokeInvite, deleteInvitee, createMember,
   createFamily, archiveFamily,
   listCommunity, createCommunityEvent, deleteCommunityEvent,
   listAddRequests, resolveAddRequest,
@@ -49,13 +49,14 @@ function FamiliesTab({ data, onReload, onEditFamily }) {
 }
 
 /* ---------- Invites ---------- */
-function InvitesTab({ data }) {
+function InvitesTab({ data, onReload }) {
   const [rows, setRows] = React.useState(null);
   const [name, setName] = React.useState('');
   const [email, setEmail] = React.useState('');
   const [fam, setFam] = React.useState(data.families[0]?.id || '');
   const [busy, setBusy] = React.useState(false);
   const [err, setErr] = React.useState('');
+  const [confirmDel, setConfirmDel] = React.useState(null); // invite id pending delete
   const load = React.useCallback(() => { listInvites().then(setRows); }, []);
   React.useEffect(() => { load(); }, [load]);
   const add = async () => {
@@ -65,14 +66,20 @@ function InvitesTab({ data }) {
     // land on their own profile, never someone else's placeholder identity.
     const r = await createMember(fam, { name: name.trim(), email: email.trim() });
     setBusy(false);
-    if (r.ok || r.offline) { setName(''); setEmail(''); load(); }
+    if (r.ok || r.offline) { setName(''); setEmail(''); load(); onReload && onReload(); }
     else setErr(r.error || 'Could not add this person.');
   };
   const revoke = async (id) => { await revokeInvite(id); load(); };
+  // Full delete: removes the person from the family (archives the member) AND the
+  // invite — for typo'd duplicates, unlike Revoke which only disables sign-in.
+  const del = async (id) => { setConfirmDel(null); await deleteInvitee(id); load(); onReload && onReload(); };
   return (
     <Card>
       <div style={{ font: 'var(--role-small)', color: 'var(--text-muted)', marginBottom: 'var(--space-4)' }}>
         Add a person to a family. Include an email and they can sign in — this creates their profile at the same time, so no one is left without one. (Families can also add their own household from the family page.)
+      </div>
+      <div style={{ font: 'var(--role-small)', color: 'var(--text-faint)', marginBottom: 'var(--space-4)' }}>
+        <b style={{ color: 'var(--text-muted)' }}>Revoke</b> just disables sign-in. <b style={{ color: 'var(--text-muted)' }}>Delete</b> also removes the person from their family — use it for typo'd duplicates.
       </div>
       {data.families.length === 0 ? (
         <EmptyState glyph="users" title="Create a family first" description="Add a family in the Families tab, then add its people here." />
@@ -94,7 +101,18 @@ function InvitesTab({ data }) {
                 <div style={{ font: 'var(--role-small)', color: 'var(--text-muted)' }}>{r.family ? `The ${r.family}s` : 'Unassigned'}</div>
               </div>
               <Badge tone={r.status === 'accepted' ? 'success' : r.status === 'revoked' ? 'danger' : 'warning'}>{r.status === 'accepted' ? 'signed in' : r.status === 'revoked' ? 'revoked' : 'invited'}</Badge>
-              {r.status !== 'revoked' && <Button variant="ghost" size="sm" onClick={() => revoke(r.id)}>Revoke</Button>}
+              {confirmDel === r.id ? (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span style={{ font: 'var(--role-small)', color: 'var(--danger)' }}>Remove this person &amp; invite?</span>
+                  <Button variant="secondary" size="sm" onClick={() => del(r.id)} style={{ color: 'var(--danger)', borderColor: 'var(--danger)' }}>Delete</Button>
+                  <Button variant="ghost" size="sm" onClick={() => setConfirmDel(null)}>Cancel</Button>
+                </div>
+              ) : (
+                <>
+                  {r.status !== 'revoked' && <Button variant="ghost" size="sm" onClick={() => revoke(r.id)}>Revoke</Button>}
+                  <Button variant="ghost" size="sm" onClick={() => setConfirmDel(r.id)} iconLeft={<i data-lucide="trash-2" style={{ width: 14, height: 14 }} />} style={{ color: 'var(--danger)' }}>Delete</Button>
+                </>
+              )}
             </Row>
           ))}
     </Card>
@@ -205,7 +223,7 @@ export function AdminScreen({ data, onReload, onEditFamily }) {
           ]} />
       </div>
       {tab === 'families' && <FamiliesTab data={data} onReload={onReload} onEditFamily={onEditFamily} />}
-      {tab === 'invites' && <InvitesTab data={data} />}
+      {tab === 'invites' && <InvitesTab data={data} onReload={onReload} />}
       {tab === 'requests' && <RequestsTab />}
       {tab === 'community' && <CommunityTab />}
     </div>

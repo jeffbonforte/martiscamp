@@ -20,6 +20,7 @@ export { AttendancePicker } from './app/AttendancePicker.jsx';
 export { RsvpControl } from './app/RsvpControl.jsx';
 export { SegmentedControl } from './app/SegmentedControl.jsx';
 export { EmptyState } from './app/EmptyState.jsx';
+export { HeroPhoto } from './app/HeroPhoto.jsx';
 export { VisitPill, SeasonTimeline } from './app/VisitTimeline.jsx'; // DS v1.1
 
 export { Dialog } from './feedback/Dialog.jsx';

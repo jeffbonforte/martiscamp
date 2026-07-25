@@ -122,6 +122,38 @@ export function parseWhen(when, defaultYear) {
   return dt;
 }
 
+// A get-together drops off the coming-up lists and the Get-togethers tab this
+// long after it starts, so a dinner that began at 6:30 stops reading as
+// "upcoming" by ~9:30. Pinned to the current year (no next-year roll) so a
+// past occurrence reads as past.
+export const ARCHIVE_AFTER_MS = 3 * 60 * 60 * 1000; // 3 hours
+
+/** Real start Date for a get-together / event from its `when` string. */
+export function eventStart(item, now = new Date()) {
+  return parseWhen(item && item.when, now.getFullYear());
+}
+
+/** True once an item is more than ARCHIVE_AFTER_MS past its start time. */
+export function isPastEvent(item, now = new Date()) {
+  const start = eventStart(item, now);
+  if (!start) return false; // unparseable time → never auto-hide
+  return now.getTime() - start.getTime() > ARCHIVE_AFTER_MS;
+}
+
+// Parse just the calendar date (ignoring any time) from a when_label like
+// "Sat, Aug 15 · 8:30 AM" — so a get-together lands on the month grid on its
+// real date, any month ahead (not only the rolling 7-day window). Pinned to the
+// current year. Null if unparseable.
+export function eventDate(item, now = new Date()) {
+  const when = item && item.when;
+  if (!when) return null;
+  const m = String(when).match(/([A-Z][a-z]{2})\s+(\d{1,2})/); // first "Mon 15" (skips the weekday, which has a comma)
+  if (!m) return null;
+  const monIdx = MONTHS_SHORT.findIndex((x) => x.toLowerCase() === m[1].toLowerCase());
+  if (monIdx < 0) return null;
+  return new Date(now.getFullYear(), monIdx, parseInt(m[2], 10));
+}
+
 function toICSStamp(date) {
   // Local-time floating value (no Z) — calendars interpret in the user's tz.
   const p = (n) => String(n).padStart(2, '0');
