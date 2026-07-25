@@ -121,6 +121,171 @@ export async function familyFutureDates(familyId, todayISO) {
   return (data || []).map((r) => r.date);
 }
 
+// ---- marking days (the only WRITE the assistant can perform) -------------
+// Scoped deliberately: add-only, future-only, and always within the asking
+// member's own family. Removing or editing days stays in the app's Plan-a-visit
+// screen — over text there's too much room for "no, not that Saturday".
+
+/** Non-archived members of a family, for scope: 'family'. */
+export async function familyMembers(familyId) {
+  if (!db || !familyId) return [];
+  const { data } = await db.from('members')
+    .select('id, name').eq('family_id', familyId).is('archived_at', null);
+  return data || [];
+}
+
+/** Dates a member already has marked inside a window (to avoid asking twice). */
+export async function memberDatesInRange(memberId, startISO, endISO) {
+  if (!db || !memberId) return [];
+  const { data } = await db.from('attendance')
+    .select('date').eq('member_id', memberId).gte('date', startISO).lte('date', endISO);
+  return (data || []).map((r) => r.date);
+}
+
+/**
+ * Delete attendance rows for these members on these dates. Returns how many
+ * rows actually went, so the assistant's confirmation can't overstate what
+ * happened ("took 4 days off" when only 2 were ever marked).
+ */
+export async function unmarkAttendance({ memberIds, dates }) {
+  if (!db) return { ok: false, error: 'not configured' };
+  if (!memberIds?.length || !dates?.length) return { ok: false, error: 'nothing to remove' };
+  const { data, error } = await db.from('attendance')
+    .delete().in('member_id', memberIds).in('date', dates).select('id');
+  return error ? { ok: false, error: error.message } : { ok: true, removed: (data || []).length };
+}
+
+/** Upsert attendance rows. Existing days are left as they are, never removed. */
+export async function markAttendance({ memberIds, familyId, dates, createdBy }) {
+  if (!db) return { ok: false, error: 'not configured' };
+  if (!memberIds?.length || !dates?.length) return { ok: false, error: 'nothing to mark' };
+  const rows = [];
+  for (const member_id of memberIds) {
+    for (const date of dates) {
+      rows.push({ member_id, family_id: familyId, date, status: 'planned', created_by: createdBy });
+    }
+  }
+  const { error } = await db.from('attendance').upsert(rows, { onConflict: 'member_id,date' });
+  return error ? { ok: false, error: error.message } : { ok: true, rows: rows.length };
+}
+
+// ---- RSVPs ---------------------------------------------------------------
+
+/**
+ * Record the asking member's RSVP to a get-together.
+ *
+ * The visibility check is done HERE, in code, because this file uses the
+ * service-role key and bypasses RLS entirely — the `can_see_event` policy that
+ * protects the web app does nothing for us. Without this check, a member could
+ * RSVP their way into a private event they were never invited to.
+ */
+export async function setRsvp({ eventSlug, memberId, status }) {
+  if (!db) return { ok: false, error: 'not configured' };
+  if (!['going', 'maybe', 'declined'].includes(status)) return { ok: false, error: 'bad status' };
+
+  const { data: ev } = await db.from('events')
+    .select('id, title, when_label, visibility, host_member_id')
+    .eq('slug', eventSlug).is('archived_at', null).maybeSingle();
+  if (!ev) return { ok: false, error: 'No get-together by that name.' };
+
+  if (ev.visibility === 'private' && ev.host_member_id !== memberId) {
+    const { data: inv } = await db.from('event_invites')
+      .select('id').eq('event_id', ev.id).eq('member_id', memberId).maybeSingle();
+    if (!inv) return { ok: false, error: 'That one is invite-only and you are not on the list.' };
+  }
+
+  const { error } = await db.from('rsvps')
+    .upsert({ event_id: ev.id, member_id: memberId, status }, { onConflict: 'event_id,member_id' });
+  return error
+    ? { ok: false, error: error.message }
+    : { ok: true, title: ev.title, when: ev.when_label, status };
+}
+
+/**
+ * Record an outbound message as an assistant turn so the member's reply has
+ * context — without this, someone answering "sure" to an invite push arrives
+ * with no history and the agent has to ask what they mean.
+ *
+ * No consumer yet; the invite push (api/notify-invite.js) will call it.
+ */
+export async function seedConversation(key, assistantText) {
+  if (!db || !key || !assistantText) return;
+  try {
+    const prior = await loadConversation(key);
+    const turns = [...prior, { role: 'assistant', content: assistantText }].slice(-CONV_MAX_TURNS);
+    await db.from('wa_conversations').upsert(
+      { phone: key, turns, updated_at: new Date().toISOString() },
+      { onConflict: 'phone' },
+    );
+  } catch { /* table missing → memory off, same as loadConversation */ }
+}
+
+// ---- outbound invites ----------------------------------------------------
+
+/** Everything the invite push needs, in one round trip's worth of queries. */
+export async function inviteDetails(eventId, memberId) {
+  if (!db) return null;
+  const [{ data: ev }, { data: invitee }] = await Promise.all([
+    db.from('events')
+      .select('id, slug, title, when_label, location, visibility, archived_at, host_member_id')
+      .eq('id', eventId).maybeSingle(),
+    db.from('members')
+      .select('id, name, phone, archived_at').eq('id', memberId).maybeSingle(),
+  ]);
+  if (!ev || !invitee) return null;
+  const { data: host } = ev.host_member_id
+    ? await db.from('members').select('name').eq('id', ev.host_member_id).maybeSingle()
+    : { data: null };
+  return { event: ev, invitee, hostName: host?.name || 'Someone' };
+}
+
+/**
+ * Claim the right to send one notification. The unique index on
+ * (member_id, kind, dedupe_key) does the work: a second caller — a retried
+ * cron run, a re-fired webhook, two concurrent fires — loses the insert and
+ * gets `false`, so nobody is texted twice. Claim-then-send, not
+ * check-then-send, because the latter races.
+ */
+export async function claimNotification({ memberId, kind, subjectId, dedupeKey, phone }) {
+  if (!db) return false;
+  const { error } = await db.from('wa_notifications')
+    .insert({ member_id: memberId, kind, subject_id: subjectId, dedupe_key: dedupeKey, phone });
+  return !error; // unique violation → already claimed
+}
+
+/**
+ * Record that a claimed send failed. The row stays, so the failure is visible
+ * in the table and the same invite is not retried into a loop — a rare missed
+ * text is better than a storm, and the host can see RSVPs in the app anyway.
+ */
+export async function recordNotificationError({ memberId, kind, dedupeKey, error }) {
+  if (!db) return;
+  await db.from('wa_notifications').update({ error: String(error).slice(0, 500) })
+    .match({ member_id: memberId, kind, dedupe_key: dedupeKey });
+}
+
+// ---- nudge throttling ----------------------------------------------------
+// Whether we've recently offered to add someone's days. Enforced in code, not
+// left to the model — a prompt rule is a suggestion, a timestamp is a fact.
+
+export async function lastNudgeAt(key) {
+  if (!db || !key) return null;
+  try {
+    const { data, error } = await db.from('wa_conversations')
+      .select('last_nudge_at').eq('phone', key).maybeSingle();
+    return error || !data ? null : (data.last_nudge_at || null);
+  } catch { return null; }
+}
+
+export async function recordNudge(key) {
+  if (!db || !key) return;
+  try {
+    // Only touches last_nudge_at; `turns` is left intact on conflict.
+    await db.from('wa_conversations')
+      .upsert({ phone: key, last_nudge_at: new Date().toISOString() }, { onConflict: 'phone' });
+  } catch { /* column not added yet → nudges simply aren't throttled */ }
+}
+
 // ---- get-togethers -------------------------------------------------------
 
 /** Upcoming get-togethers this member may see (open to all, or invite-only and

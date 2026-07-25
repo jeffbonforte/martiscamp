@@ -81,7 +81,7 @@ from (values
     'A private foursome before it heats up — grabbing one cart and finishing with lunch at the Bistro. Invited a few of the usual crew.','private', 4),
   ('dinner-fri','Family dinner at the Bistro','dining','Rosa Alvarez','Fri, Jul 11 · 6:30 PM','Camp Lodge Bistro',
     'Big table on the patio to kick off the weekend. Bring the whole crew — highchairs sorted for the little ones.','open', 16),
-  ('paddle-sat','Sunset paddle at the Beach Club','beach','Ben Kwan','Sat, Jul 12 · 5:00 PM','The Beach Club',
+  ('paddle-sat','Sunset paddle at the Lake Club','beach','Ben Kwan','Sat, Jul 12 · 5:00 PM','The Lake Club',
     'Paddleboards and kayaks out on the lake for golden hour. Life vests provided; strong swimmers only for the boards.','open', 10),
   ('hike-sun','Morning hike — Lookout loop','hike','Chi Okafor','Sun, Jul 13 · 7:30 AM','Trailhead by Lookout Lodge',
     'Easy 3-mile loop with a stop at the overlook. Coffee at Martis Perk after for anyone who wants it.','open', 12),
@@ -124,12 +124,12 @@ on conflict do nothing;
 
 -- Activity feed -----------------------------------------------------------
 insert into public.feed (kind, actor_label, tone, body, event_slug, family_slug) values
-  ('announcement','Martis Camp','var(--cedar-600)','Beach Club closed Saturday 8–11am for dock maintenance — pool open as usual.',null,null),
+  ('announcement','Martis Camp','var(--cedar-600)','Lake Club closed Saturday 8–11am for dock maintenance — pool open as usual.',null,null),
   ('invite','Tom Bell','var(--pine-600)','invited you to a private foursome — Saturday morning 9 holes.','golf-sat',null),
   ('arrival','The Alvarez family','var(--lake-600)','is arriving Saturday for the weekend.',null,'alvarez'),
   ('gathering','Sara Bell','var(--pine-600)','is hosting an open house happy hour Friday at 5:30.','happyhour-fri',null),
   ('community','Martis Camp','var(--cedar-600)','Live music at the Family Barn, Friday evening.',null,null),
-  ('rsvp','Ben Kwan','var(--cedar-600)','is in for the Saturday paddle at the Beach Club.','paddle-sat',null),
+  ('rsvp','Ben Kwan','var(--cedar-600)','is in for the Saturday paddle at the Lake Club.','paddle-sat',null),
   ('comment','Rosa Alvarez','var(--lake-600)','commented on the Bistro dinner: "We''ll grab the big patio table."','dinner-fri',null)
 on conflict do nothing;
 

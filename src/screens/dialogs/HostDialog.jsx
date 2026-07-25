@@ -4,7 +4,7 @@ import { useLucide } from '../../lib/useLucide.js';
 import { createGathering, updateGathering } from '../../lib/api.js';
 import { dateKey, eventDate } from '../../lib/calendar.js';
 
-const VENUES = ['Golf clubhouse', 'Camp Lodge Bistro', 'The Family Barn', 'The Beach Club', 'Martis Perk', 'Tennis Pavilion', 'Lookout Lodge', 'Pickleball courts'];
+const VENUES = ['Golf clubhouse', 'Camp Lodge Bistro', 'The Family Barn', 'The Lake Club', 'Martis Perk', 'Tennis Pavilion', 'Lookout Lodge', 'Pickleball courts'];
 const TODAY_KEY = dateKey(new Date());
 const AMENITY_OPTS = Object.entries(AMENITIES).map(([value, v]) => ({ value, label: v.label }));
 
@@ -130,7 +130,7 @@ export function HostDialog({ open, data, initialType = 'gathering', editEvent = 
 
         {postType === 'announcement' ? (
           <>
-            <Input label="Announcement" placeholder="Beach Club closed for maintenance Saturday" />
+            <Input label="Announcement" placeholder="Lake Club closed for maintenance Saturday" />
             <Textarea label="Message" rows={3} placeholder="Share the details — no date or place needed." />
             <div>
               <div style={{ font: 'var(--fw-medium) var(--text-sm)/1.3 var(--font-sans)', color: 'var(--text-strong)', marginBottom: 6 }}>Who should see this?</div>
