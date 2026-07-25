@@ -169,6 +169,57 @@ export async function markAttendance({ memberIds, familyId, dates, createdBy }) 
   return error ? { ok: false, error: error.message } : { ok: true, rows: rows.length };
 }
 
+// ---- RSVPs ---------------------------------------------------------------
+
+/**
+ * Record the asking member's RSVP to a get-together.
+ *
+ * The visibility check is done HERE, in code, because this file uses the
+ * service-role key and bypasses RLS entirely — the `can_see_event` policy that
+ * protects the web app does nothing for us. Without this check, a member could
+ * RSVP their way into a private event they were never invited to.
+ */
+export async function setRsvp({ eventSlug, memberId, status }) {
+  if (!db) return { ok: false, error: 'not configured' };
+  if (!['going', 'maybe', 'declined'].includes(status)) return { ok: false, error: 'bad status' };
+
+  const { data: ev } = await db.from('events')
+    .select('id, title, when_label, visibility, host_member_id')
+    .eq('slug', eventSlug).is('archived_at', null).maybeSingle();
+  if (!ev) return { ok: false, error: 'No get-together by that name.' };
+
+  if (ev.visibility === 'private' && ev.host_member_id !== memberId) {
+    const { data: inv } = await db.from('event_invites')
+      .select('id').eq('event_id', ev.id).eq('member_id', memberId).maybeSingle();
+    if (!inv) return { ok: false, error: 'That one is invite-only and you are not on the list.' };
+  }
+
+  const { error } = await db.from('rsvps')
+    .upsert({ event_id: ev.id, member_id: memberId, status }, { onConflict: 'event_id,member_id' });
+  return error
+    ? { ok: false, error: error.message }
+    : { ok: true, title: ev.title, when: ev.when_label, status };
+}
+
+/**
+ * Record an outbound message as an assistant turn so the member's reply has
+ * context — without this, someone answering "sure" to an invite push arrives
+ * with no history and the agent has to ask what they mean.
+ *
+ * No consumer yet; the invite push (api/notify-invite.js) will call it.
+ */
+export async function seedConversation(key, assistantText) {
+  if (!db || !key || !assistantText) return;
+  try {
+    const prior = await loadConversation(key);
+    const turns = [...prior, { role: 'assistant', content: assistantText }].slice(-CONV_MAX_TURNS);
+    await db.from('wa_conversations').upsert(
+      { phone: key, turns, updated_at: new Date().toISOString() },
+      { onConflict: 'phone' },
+    );
+  } catch { /* table missing → memory off, same as loadConversation */ }
+}
+
 // ---- nudge throttling ----------------------------------------------------
 // Whether we've recently offered to add someone's days. Enforced in code, not
 // left to the model — a prompt rule is a suggestion, a timestamp is a fact.

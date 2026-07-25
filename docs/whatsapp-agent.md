@@ -93,6 +93,7 @@ Write:
 
 - `mark_days` — puts days on the asker's Martis calendar.
 - `remove_days` — takes days off it.
+- `rsvp_to_event` — records the asker's answer to a get-together.
 
 Add a tool by extending the `TOOLS` array and the `execute()` switch in
 `api/_lib/agent.js` plus a query in `api/_lib/db.js`.
@@ -122,6 +123,36 @@ enforcement half.
 > household; the confirmation step is what prevents the wrong dates inside it.
 > Fiddly per-person edits still belong in the app's Plan-a-visit screen —
 > whole-household is the only granularity over text.
+
+## RSVPs
+
+`rsvp_to_event` records the texter's own answer (`going` / `maybe` / `declined`)
+to a get-together they can see, keyed by the `id` returned from
+`upcoming_gatherings`.
+
+**The visibility check is in `setRsvp()`, not in RLS.** This file uses the
+service-role key and bypasses RLS entirely, so the `can_see_event` policy that
+protects the web app does nothing here. Without the explicit check, a member
+could RSVP their way into a private event they were never invited to. Private
+events require the caller to be the host or hold an `event_invites` row.
+
+## Outbound (in progress)
+
+Two pieces are in place ahead of the sender:
+
+- **`seedConversation(key, text)`** records an outbound message as an assistant
+  turn, so someone replying "sure" to an invite has context instead of the agent
+  asking what they mean. `runAgent` trims leading assistant turns before calling
+  the API, which requires a user turn first — without that trim, a reply to a
+  seeded message would 400.
+- **`wa_notifications`** (`0016`) makes sending idempotent, so a retried cron run
+  or a re-fired webhook can't send the same text twice.
+
+Still missing: the sender itself. WhatsApp only permits business-initiated
+messages outside a 24-hour window via a **Meta-approved template**, so
+`api/notify-invite.js`, the Twilio REST client, and `TWILIO_ACCOUNT_SID` /
+`TWILIO_WHATSAPP_FROM` are gated on whether the number can send templates.
+The Sandbox described above cannot.
 
 ## Nudges
 

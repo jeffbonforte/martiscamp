@@ -8,7 +8,7 @@ import {
   roster, findMembersByName, favoritesFor,
   attendanceInRange, memberFutureDates, visibleGatherings,
   familyMembers, memberDatesInRange, markAttendance, unmarkAttendance,
-  lastNudgeAt, recordNudge,
+  setRsvp, lastNudgeAt, recordNudge,
 } from './db.js';
 import {
   todayISO, upcomingWeekend, labelISO, rangeLabel, groupStays, eventDateISO, addDaysISO,
@@ -111,6 +111,21 @@ const TOOLS = [
         end_date: { type: 'string', description: 'Last night, YYYY-MM-DD (same as start_date for a single night)' },
       },
       required: ['start_date', 'end_date'],
+    },
+  },
+  {
+    name: 'rsvp_to_event',
+    description: "Record the asker's answer to a get-together. Use the `id` from upcoming_gatherings. Only their own RSVP — never anyone else's. Confirm which get-together and which answer before calling.",
+    input_schema: {
+      type: 'object', additionalProperties: false,
+      properties: {
+        event: { type: 'string', description: 'The get-together `id` from upcoming_gatherings' },
+        status: {
+          type: 'string', enum: ['going', 'maybe', 'declined'],
+          description: "'going' if they're in, 'declined' if they can't make it, 'maybe' if unsure",
+        },
+      },
+      required: ['event', 'status'],
     },
   },
   {
@@ -262,7 +277,8 @@ async function execute(name, input, ctx) {
         .filter((e) => e.dateISO && e.dateISO >= ctx.today)
         .sort((a, b) => a.dateISO.localeCompare(b.dateISO))
         .slice(0, 8)
-        .map((e) => ({ title: e.title, when: e.when_label, where: e.location, invite_only: e.visibility === 'private' || undefined }));
+        // `id` is the slug — rsvp_to_event needs it to identify the event.
+        .map((e) => ({ id: e.slug, title: e.title, when: e.when_label, where: e.location, invite_only: e.visibility === 'private' || undefined }));
       return { gatherings };
     }
     case 'get_weather': {
@@ -280,6 +296,8 @@ async function execute(name, input, ctx) {
       return markDays(input, ctx);
     case 'remove_days':
       return removeDays(input, ctx);
+    case 'rsvp_to_event':
+      return setRsvp({ eventSlug: input.event, memberId: ctx.member.id, status: input.status });
     default:
       return { error: `Unknown tool: ${name}` };
   }
@@ -330,6 +348,12 @@ function systemPrompt(member, today, nudge) {
     '- Only ever their own household. There is no way to touch another family, and you should not imply otherwise.',
     '- Afterwards, confirm in one line what actually happened. If a removal reports that nothing was marked, say that plainly instead of claiming you cleared it.',
     '- Only future days can be changed. For anything in the past, or a change too fiddly for text, point them at the app.',
+    '',
+    'GET-TOGETHERS',
+    'You can record their answer to a get-together with rsvp_to_event — their own answer only, never anyone else\'s.',
+    '- Be sure which get-together and which answer before you call it. If more than one is coming up, ask which.',
+    '- If they were invited to something private and want in, that is exactly what this is for.',
+    '- Say back what you recorded in one line.',
     ...(nudge ? [
       '',
       'ONE THING TO RAISE',
@@ -364,7 +388,12 @@ export async function runAgent(question, member, history = [], convKey = null) {
   const today = todayISO();
   const { familyName, memberById } = await roster();
   const ctx = { member, today, familyName, memberById };
-  const messages = [...history, { role: 'user', content: question }];
+  // The API requires the first message to be a user turn. An outbound message
+  // seeded by seedConversation (an invite push) lands as an assistant turn, so
+  // a reply to one would otherwise start the array with `assistant` and 400.
+  const prior = [...history];
+  while (prior.length && prior[0].role !== 'user') prior.shift();
+  const messages = [...prior, { role: 'user', content: question }];
 
   // Decide up front whether this reply may carry a nudge, and burn the cooldown
   // immediately. Recording it here rather than on success means a crash can
