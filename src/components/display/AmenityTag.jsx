@@ -9,7 +9,9 @@ export const AMENITIES = {
   pool:       { label: 'Pool',        hue: 'var(--act-pool)',   glyph: 'waves' },
   workout:    { label: 'Workout',     hue: 'var(--stone-600)',  glyph: 'dumbbell' },
   hike:       { label: 'Hiking',      hue: 'var(--act-hike)',   glyph: 'footprints' },
-  beach:      { label: 'Beach Club',  hue: 'var(--act-pool)',   glyph: 'umbrella' },
+  // Key stays `beach` — it's stored in events.amenity and members.interests, so
+  // renaming it would mean migrating live rows for a string nobody sees.
+  beach:      { label: 'Lake Club',   hue: 'var(--act-pool)',   glyph: 'umbrella' },
   dining:     { label: 'Dining',      hue: 'var(--act-dining)', glyph: 'utensils' },
   cafe:       { label: 'Café',        hue: 'var(--cedar-600)',  glyph: 'coffee' },
   puttputt:   { label: 'Putt-putt',   hue: 'var(--act-golf)',   glyph: 'flag-triangle-right' },

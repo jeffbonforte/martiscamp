@@ -121,6 +121,76 @@ export async function familyFutureDates(familyId, todayISO) {
   return (data || []).map((r) => r.date);
 }
 
+// ---- marking days (the only WRITE the assistant can perform) -------------
+// Scoped deliberately: add-only, future-only, and always within the asking
+// member's own family. Removing or editing days stays in the app's Plan-a-visit
+// screen — over text there's too much room for "no, not that Saturday".
+
+/** Non-archived members of a family, for scope: 'family'. */
+export async function familyMembers(familyId) {
+  if (!db || !familyId) return [];
+  const { data } = await db.from('members')
+    .select('id, name').eq('family_id', familyId).is('archived_at', null);
+  return data || [];
+}
+
+/** Dates a member already has marked inside a window (to avoid asking twice). */
+export async function memberDatesInRange(memberId, startISO, endISO) {
+  if (!db || !memberId) return [];
+  const { data } = await db.from('attendance')
+    .select('date').eq('member_id', memberId).gte('date', startISO).lte('date', endISO);
+  return (data || []).map((r) => r.date);
+}
+
+/**
+ * Delete attendance rows for these members on these dates. Returns how many
+ * rows actually went, so the assistant's confirmation can't overstate what
+ * happened ("took 4 days off" when only 2 were ever marked).
+ */
+export async function unmarkAttendance({ memberIds, dates }) {
+  if (!db) return { ok: false, error: 'not configured' };
+  if (!memberIds?.length || !dates?.length) return { ok: false, error: 'nothing to remove' };
+  const { data, error } = await db.from('attendance')
+    .delete().in('member_id', memberIds).in('date', dates).select('id');
+  return error ? { ok: false, error: error.message } : { ok: true, removed: (data || []).length };
+}
+
+/** Upsert attendance rows. Existing days are left as they are, never removed. */
+export async function markAttendance({ memberIds, familyId, dates, createdBy }) {
+  if (!db) return { ok: false, error: 'not configured' };
+  if (!memberIds?.length || !dates?.length) return { ok: false, error: 'nothing to mark' };
+  const rows = [];
+  for (const member_id of memberIds) {
+    for (const date of dates) {
+      rows.push({ member_id, family_id: familyId, date, status: 'planned', created_by: createdBy });
+    }
+  }
+  const { error } = await db.from('attendance').upsert(rows, { onConflict: 'member_id,date' });
+  return error ? { ok: false, error: error.message } : { ok: true, rows: rows.length };
+}
+
+// ---- nudge throttling ----------------------------------------------------
+// Whether we've recently offered to add someone's days. Enforced in code, not
+// left to the model — a prompt rule is a suggestion, a timestamp is a fact.
+
+export async function lastNudgeAt(key) {
+  if (!db || !key) return null;
+  try {
+    const { data, error } = await db.from('wa_conversations')
+      .select('last_nudge_at').eq('phone', key).maybeSingle();
+    return error || !data ? null : (data.last_nudge_at || null);
+  } catch { return null; }
+}
+
+export async function recordNudge(key) {
+  if (!db || !key) return;
+  try {
+    // Only touches last_nudge_at; `turns` is left intact on conflict.
+    await db.from('wa_conversations')
+      .upsert({ phone: key, last_nudge_at: new Date().toISOString() }, { onConflict: 'phone' });
+  } catch { /* column not added yet → nudges simply aren't throttled */ }
+}
+
 // ---- get-togethers -------------------------------------------------------
 
 /** Upcoming get-togethers this member may see (open to all, or invite-only and

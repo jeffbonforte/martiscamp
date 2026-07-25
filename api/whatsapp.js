@@ -31,11 +31,15 @@ async function handleMessage({ from, text }, res, mode) {
     if (!member) return reply('This number isn’t registered with Martis Camp Families yet — ask an admin to add your mobile number to your member profile.');
     const key = phoneKey(phone);
     const history = await loadConversation(key);
-    const answer = await runAgent(q, member, history);
+    const answer = await runAgent(q, member, history, key);
     await saveConversation(key, [...history, { role: 'user', content: q }, { role: 'assistant', content: answer }]);
     return reply(answer);
   } catch (e) {
-    console.error('[whatsapp] error', e); // details go to Vercel function logs
+    // Name the model: a model-specific API rejection (an unsupported parameter,
+    // say) is otherwise indistinguishable from any other failure in the logs,
+    // and WHATSAPP_AGENT_MODEL can change without a code change.
+    const model = process.env.WHATSAPP_AGENT_MODEL || '(code default)';
+    console.error(`[whatsapp] error model=${model}`, e); // details go to Vercel function logs
     return reply('Sorry — something went wrong on my end. Please try again in a moment.');
   }
 }

@@ -76,14 +76,73 @@ Twilio — great for iterating on tool behavior and copy.
 
 ## What it can answer (current tools)
 
+Read-only:
+
 - `find_person` — resolve a name (handles ambiguity).
 - `person_next_visit` — someone's upcoming stays.
 - `whos_here` — families at Martis in a date range (optionally favorites only).
 - `list_favorites` — the asker's favorites.
 - `upcoming_gatherings` — get-togethers the asker can see.
+- `get_weather` — 7-day Truckee forecast + snow report. Uses the same
+  `api/_openmeteo.js` helper as the web app, so the bot and the site can't
+  disagree about the forecast.
+- `my_days` — the asker's own upcoming days, so it never offers to add
+  something already on their calendar.
+
+Write:
+
+- `mark_days` — puts days on the asker's Martis calendar.
+- `remove_days` — takes days off it.
 
 Add a tool by extending the `TOOLS` array and the `execute()` switch in
 `api/_lib/agent.js` plus a query in `api/_lib/db.js`.
+
+## Changing the calendar
+
+These are the only things the assistant can change, so the limits live in code
+(`validateRange()` / `household()` in `api/_lib/agent.js`), not in the prompt —
+a prompt rule is a suggestion, a range check is a fact:
+
+- **Whole household, always.** Both tools resolve every non-archived member of
+  the *texter's own* family. There is no parameter for anyone else, so no
+  amount of prompting reaches another family.
+- **Future only**, and no more than 400 days out — history can't be rewritten.
+- **60 nights maximum** per call.
+- **Removal reports rows, not intent.** `unmarkAttendance` returns how many rows
+  it actually deleted, so the assistant can't claim it cleared a week that was
+  never marked.
+
+The prompt separately requires it to say the dates back and get a clear yes
+before calling either tool. That's the conversational half; the above is the
+enforcement half.
+
+> **Removal is the one destructive path and there is no undo.** A misparsed date
+> silently deletes a real plan and nobody finds out until they arrive. The
+> guards above bound the blast radius to future days in the caller's own
+> household; the confirmation step is what prevents the wrong dates inside it.
+> Fiddly per-person edits still belong in the app's Plan-a-visit screen —
+> whole-household is the only granularity over text.
+
+## Nudges
+
+To encourage people to keep their days current, the assistant may raise the next
+occasion households actually plan around — Thanksgiving, the holidays, MLK,
+Presidents' Day, Memorial Day, the Fourth, Labor Day (`api/_lib/occasions.js`).
+
+It only comes up when **all** of these hold, and all are decided in code before
+the model sees anything:
+
+1. An occasion starts within 70 days.
+2. That member has nothing marked in its window.
+3. They haven't been nudged in the last 7 days (`wa_conversations.last_nudge_at`).
+
+The cooldown is burned when the nudge is *offered*, not when it succeeds — a
+crash costs one missed nudge rather than risking a loop that asks every message.
+The model is told to raise it once, at the end, only after answering the actual
+question, and to drop it if brushed off.
+
+Requires `supabase/migrations/0015_wa_conversations.sql` for the
+`last_nudge_at` column. Without it, nudging still works but isn't throttled.
 
 ## Cost
 
