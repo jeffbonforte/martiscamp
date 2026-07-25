@@ -20,6 +20,21 @@ const MODEL = process.env.WHATSAPP_AGENT_MODEL || 'claude-opus-5';
 // per-text latency and cost down. Raise to 'medium' if answers get shallow.
 const EFFORT = process.env.WHATSAPP_AGENT_EFFORT || 'low';
 
+/**
+ * Adaptive thinking and `output_config.effort` exist on Opus 4.6+, Sonnet 4.6+,
+ * and the 5-series. They do NOT exist on `claude-haiku-4-5` — which the comment
+ * above documents as the cheap override — and sending them there fails the
+ * whole request with `400 adaptive thinking is not supported on this model`,
+ * turning every reply into the generic error string.
+ *
+ * Deliberately an allowlist: an unrecognised model simply goes without these
+ * params and still gets an answer, whereas a denylist would send them to
+ * anything new and 400. Add future models here to opt them in.
+ */
+export function supportsAdaptiveThinking(model) {
+  return /^claude-(opus-(4-6|4-7|4-8|5)|sonnet-(4-6|5)|fable-5|mythos-5)\b/.test(String(model || ''));
+}
+
 // Lazy so a missing ANTHROPIC_API_KEY surfaces as a handled reply, not an
 // import-time crash.
 let _client;
@@ -164,19 +179,22 @@ export async function runAgent(question, member, history = []) {
   const messages = [...history, { role: 'user', content: question }];
 
   for (let i = 0; i < 6; i += 1) {
-    const resp = await client().messages.create({
+    const req = {
       model: MODEL,
       // max_tokens caps thinking AND the reply together, and on Opus 5 thinking
       // is on by default — the old 700 could be spent reasoning about a
       // multi-step question and truncate the text mid-sentence. The style rules
-      // below keep the actual reply to a few lines regardless.
+      // in the system prompt keep the actual reply to a few lines regardless.
       max_tokens: 2000,
-      thinking: { type: 'adaptive' },
-      output_config: { effort: EFFORT },
       system: systemPrompt(member, today),
       tools: TOOLS,
       messages,
-    });
+    };
+    if (supportsAdaptiveThinking(MODEL)) {
+      req.thinking = { type: 'adaptive' };
+      req.output_config = { effort: EFFORT };
+    }
+    const resp = await client().messages.create(req);
 
     if (resp.stop_reason === 'tool_use') {
       messages.push({ role: 'assistant', content: resp.content });
