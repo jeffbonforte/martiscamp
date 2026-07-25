@@ -1,3 +1,9 @@
+-- SUPERSEDED by migrations/0013_member_gate.sql, which does all of this and
+-- additionally requires a linked member row (not just any session) to read.
+-- Kept for reference only -- do not run it after 0013, or it will widen the
+-- read policy back to every authenticated user. Nothing here needs applying to
+-- a database that has 0013.
+--
 -- Make personal photo storage members-only. Run in the Supabase SQL Editor
 -- AFTER the signed-URL app code is deployed (the app resolves signed URLs, so
 -- flipping these private no longer breaks display). Generic scenery heroes/logo
