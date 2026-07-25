@@ -42,7 +42,8 @@ unknown number gets a polite "not registered" reply.
 | `SUPABASE_URL` | Supabase project URL (or it falls back to `VITE_SUPABASE_URL`) | – |
 | `TWILIO_AUTH_TOKEN` | Twilio Console → Account Info → Auth Token | ✅ (POST fails closed without it) |
 | `WHATSAPP_PUBLIC_URL` | The exact webhook URL Twilio calls, e.g. `https://martis.camp/api/whatsapp` | ✅ (signature check) |
-| `WHATSAPP_AGENT_MODEL` | Override the model. Default `claude-opus-4-8`; set `claude-haiku-4-5` for ~5× lower cost | – |
+| `WHATSAPP_AGENT_MODEL` | Override the model. Default `claude-opus-5`; set `claude-haiku-4-5` for ~5× lower cost | – |
+| `WHATSAPP_AGENT_EFFORT` | Reasoning effort: `low` (default), `medium`, `high`. Raise if answers get shallow | – |
 | `WHATSAPP_TEST_KEY` | Any random string — enables the GET test mode below | – |
 
 > The `service_role` key bypasses RLS — keep it server-side only (it's only ever
@@ -87,8 +88,13 @@ Add a tool by extending the `TOOLS` array and the `execute()` switch in
 ## Cost
 
 Each question is ~2–4 short model calls (the tool loop). On `claude-haiku-4-5`
-that's well under a cent per question; `claude-opus-4-8` is higher but the best
+that's well under a cent per question; `claude-opus-5` is higher but the best
 quality. Flip via `WHATSAPP_AGENT_MODEL`.
+
+The agent runs at `effort: 'low'` — these are short lookups over five fixed
+tools, and Opus 5 holds up well at the low end, so it keeps per-text latency and
+cost down. `max_tokens` is 2000 because on Opus 5 that budget covers thinking
+*and* the reply; the prompt's style rules are what keep the actual text short.
 
 ## Not in v1 (easy follow-ups)
 

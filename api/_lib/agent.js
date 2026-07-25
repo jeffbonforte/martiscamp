@@ -10,10 +10,15 @@ import {
 } from './db.js';
 import { todayISO, upcomingWeekend, labelISO, rangeLabel, groupStays, eventDateISO } from './dates.js';
 
-// Default is Opus 4.8 (the current top model). For a per-message WhatsApp bot
-// answering structured lookups, `claude-haiku-4-5` is ~5x cheaper and plenty
-// capable — set WHATSAPP_AGENT_MODEL=claude-haiku-4-5 to switch, no code change.
-const MODEL = process.env.WHATSAPP_AGENT_MODEL || 'claude-opus-4-8';
+// Default is Opus 5 (the current top model), same price as the 4.8 it replaced.
+// Override with WHATSAPP_AGENT_MODEL — `claude-haiku-4-5` is ~5x cheaper if the
+// lookups ever stop needing the extra reasoning.
+const MODEL = process.env.WHATSAPP_AGENT_MODEL || 'claude-opus-5';
+
+// These are short, structured lookups over five fixed tools, so low effort is
+// the right trade: Opus 5 is unusually strong at the low end, and it keeps the
+// per-text latency and cost down. Raise to 'medium' if answers get shallow.
+const EFFORT = process.env.WHATSAPP_AGENT_EFFORT || 'low';
 
 // Lazy so a missing ANTHROPIC_API_KEY surfaces as a handled reply, not an
 // import-time crash.
@@ -161,7 +166,13 @@ export async function runAgent(question, member, history = []) {
   for (let i = 0; i < 6; i += 1) {
     const resp = await client().messages.create({
       model: MODEL,
-      max_tokens: 700,
+      // max_tokens caps thinking AND the reply together, and on Opus 5 thinking
+      // is on by default — the old 700 could be spent reasoning about a
+      // multi-step question and truncate the text mid-sentence. The style rules
+      // below keep the actual reply to a few lines regardless.
+      max_tokens: 2000,
+      thinking: { type: 'adaptive' },
+      output_config: { effort: EFFORT },
       system: systemPrompt(member, today),
       tools: TOOLS,
       messages,

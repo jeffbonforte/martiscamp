@@ -20,6 +20,12 @@ const DAY_DATE = Object.fromEntries(WINDOW.map((d) => [d.key, d.iso]));
 const DATE_DAY = Object.fromEntries(WINDOW.map((d) => [d.iso, d.key]));
 const DAY_ORDER = WINDOW.map((d) => d.key);
 const DAY_LABEL = Object.fromEntries(WINDOW.map((d) => [d.key, d.label]));
+// Inclusive bounds of that window. loadAppData only ever consumes attendance
+// rows inside it (anything else fails the DATE_DAY lookup and is dropped), so
+// the query is bounded here rather than downloading a year of forward planning
+// on every load. Plan-a-visit reads its own horizon via loadVisitPlan().
+const WINDOW_START = WINDOW[0].iso;
+const WINDOW_END = WINDOW[WINDOW.length - 1].iso;
 const WEEKDAY_TO_KEY = { Thu: 'thu', Fri: 'fri', Sat: 'sat', Sun: 'sun', Mon: 'mon', Tue: 'tue', Wed: 'wed' };
 
 // Presence is day-agnostic (people visit any days, not just weekends). "here"
@@ -105,7 +111,7 @@ export async function loadAppData() {
   const [familiesRes, membersRes, attendanceRes, eventsRes, rsvpsRes, invitesRes, communityRes, feedRes, favoritesRes] = await Promise.all([
     supabase.from('families').select('*').is('archived_at', null),
     supabase.from('members').select('*').is('archived_at', null),
-    supabase.from('attendance').select('member_id, family_id, date'),
+    supabase.from('attendance').select('member_id, family_id, date').gte('date', WINDOW_START).lte('date', WINDOW_END),
     supabase.from('events').select('*').is('archived_at', null),
     supabase.from('rsvps').select('event_id, member_id, status'),
     supabase.from('event_invites').select('event_id, member_id'),
