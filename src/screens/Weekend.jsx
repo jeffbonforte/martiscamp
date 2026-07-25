@@ -125,6 +125,7 @@ export function WeekendScreen({ data, season, favorites, onOpenFamily, onEditFam
               const my = rsvpMap[g.id] ?? g.myRsvp;
               return (
                 <GatheringCard key={g.id} gathering={{ ...g, open: g.capacity == null, spotsLeft: g.capacity != null ? g.capacity - g.going.length : undefined, joined: my === 'going' }}
+                  onOpen={() => onOpenEvent(g)}
                   onRsvp={() => onOpenEvent(g)} onAddToCalendar={() => onAddCal(g)} />
               );
             })}

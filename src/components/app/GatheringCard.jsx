@@ -8,18 +8,44 @@ import { Button } from '../forms/Button.jsx';
  * `visibility` = 'open' (anyone can join) | 'private' (invite only).
  * For private get-togethers, `youInvited` controls whether the viewer can join.
  * `onAddToCalendar` adds an "Add to calendar" action.
+ * `onOpen` makes the whole card open the get-together's detail screen — where
+ * the host (or an admin) can edit or delete it.
  */
-export function GatheringCard({ gathering = {}, onRsvp, onAddToCalendar, style = {} }) {
+export function GatheringCard({ gathering = {}, onRsvp, onAddToCalendar, onOpen, style = {} }) {
   const { title, amenity, host, when, where, going = [], spotsLeft, joined, open,
     visibility = 'open', youInvited = true } = gathering;
   const isPrivate = visibility === 'private';
   const canJoin = !isPrivate || youInvited;
+  const interactive = typeof onOpen === 'function';
+  const [hover, setHover] = React.useState(false);
+
+  // role="button" rather than an actual <button> wrapper: the card already
+  // contains buttons, and nesting interactive elements is invalid HTML and
+  // breaks keyboard navigation. This keeps it reachable by tab and Enter/Space.
+  const openProps = interactive ? {
+    role: 'button',
+    tabIndex: 0,
+    'aria-label': `Open ${title || 'get-together'}`,
+    onClick: onOpen,
+    onKeyDown: (e) => {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpen(); }
+    },
+    onMouseEnter: () => setHover(true),
+    onMouseLeave: () => setHover(false),
+    onFocus: () => setHover(true),
+    onBlur: () => setHover(false),
+  } : {};
+
   return (
-    <div style={{
-      background: 'var(--surface-card)', border: '1px solid var(--border)',
+    <div {...openProps} style={{
+      background: 'var(--surface-card)',
+      border: `1px solid ${interactive && hover ? 'var(--border-strong)' : 'var(--border)'}`,
       borderRadius: 'var(--radius-lg)', padding: 'var(--space-5)',
       display: 'flex', flexDirection: 'column', gap: 'var(--space-4)',
-      boxShadow: 'var(--shadow-sm)', ...style,
+      boxShadow: interactive && hover ? 'var(--shadow-md)' : 'var(--shadow-sm)',
+      cursor: interactive ? 'pointer' : undefined,
+      transition: 'box-shadow 120ms ease, border-color 120ms ease',
+      ...style,
     }}>
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 'var(--space-3)' }}>
         <div style={{ minWidth: 0 }}>
@@ -71,8 +97,11 @@ export function GatheringCard({ gathering = {}, onRsvp, onAddToCalendar, style =
               <i data-lucide="calendar-plus" style={{ width: 16, height: 16 }} />
             </button>
           )}
+          {/* stopPropagation below so the button doesn't also trigger the card's
+              onOpen — same destination today, but it would fire twice. */}
           {canJoin ? (
-            <Button size="sm" variant={joined ? 'secondary' : 'primary'} onClick={onRsvp}>
+            <Button size="sm" variant={joined ? 'secondary' : 'primary'}
+              onClick={(e) => { if (e && e.stopPropagation) e.stopPropagation(); onRsvp && onRsvp(); }}>
               {joined ? 'Going ✓' : "I'm in"}
             </Button>
           ) : (
