@@ -136,23 +136,58 @@ protects the web app does nothing here. Without the explicit check, a member
 could RSVP their way into a private event they were never invited to. Private
 events require the caller to be the host or hold an `event_invites` row.
 
-## Outbound (in progress)
+## Outbound invites
 
-Two pieces are in place ahead of the sender:
+When someone is added to a private get-together they get a WhatsApp message,
+and their reply lands in a normal conversation with the assistant — which can
+then record the RSVP via `rsvp_to_event`.
 
-- **`seedConversation(key, text)`** records an outbound message as an assistant
-  turn, so someone replying "sure" to an invite has context instead of the agent
-  asking what they mean. `runAgent` trims leading assistant turns before calling
-  the API, which requires a user turn first — without that trim, a reply to a
-  seeded message would 400.
-- **`wa_notifications`** (`0016`) makes sending idempotent, so a retried cron run
-  or a re-fired webhook can't send the same text twice.
+**Everything else in this codebase replies to an inbound message.** This is the
+one path that starts a conversation, and WhatsApp only permits that outside a
+24-hour window via a **Meta-approved content template** — free-form text is
+silently useless. So `api/_lib/twilio.js` sends through Twilio's Content API
+with a template SID and positional variables, never a raw body.
 
-Still missing: the sender itself. WhatsApp only permits business-initiated
-messages outside a 24-hour window via a **Meta-approved template**, so
-`api/notify-invite.js`, the Twilio REST client, and `TWILIO_ACCOUNT_SID` /
-`TWILIO_WHATSAPP_FROM` are gated on whether the number can send templates.
-The Sandbox described above cannot.
+**The template** (Twilio Console → Content Template Builder, category
+*Utility*), whose SID goes in `TWILIO_INVITE_CONTENT_SID`:
+
+```
+You're invited: {{1}} added you to {{2}} on {{3}}. Reply here to RSVP or ask about it.
+```
+
+`{{1}}` host name · `{{2}}` event title · `{{3}}` when. It opens and closes with
+real text rather than a variable, which Meta rejects less often.
+
+**The trigger is a Supabase Database Webhook**, not the browser — that catches
+invites however they're created (the Host dialog today, admin SQL tomorrow) and
+keeps the secret off the client:
+
+> Supabase → Database → Webhooks → new webhook
+> · table `public.event_invites` · events `INSERT`
+> · HTTP Request → `POST https://martis.camp/api/notify-invite`
+> · header `x-webhook-secret: <INVITE_WEBHOOK_SECRET>`
+
+The endpoint also accepts `{ event_id, member_id }` directly, for testing or to
+backfill an invite created before this existed.
+
+**Not sent** — each of these returns 200, not an error, because a webhook that
+500s gets retried and none of them improve on retry: archived event, archived
+member, host inviting themselves, no usable phone, already notified.
+
+**Idempotency is a claim, not a check.** `claimNotification` inserts into
+`wa_notifications` first and relies on the unique index over
+`(member_id, kind, dedupe_key)`; a second caller loses the insert and stops.
+Check-then-send would race two concurrent fires into two texts.
+
+A send that fails leaves the claim row with `error` set. It is deliberately not
+retried — a rare missed text beats a retry storm, and the host can see RSVPs in
+the app regardless. Find them with:
+
+```sql
+select * from public.wa_notifications where error is not null order by sent_at desc;
+```
+
+Requires `0016_wa_notifications.sql`.
 
 ## Nudges
 

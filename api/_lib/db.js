@@ -220,6 +220,50 @@ export async function seedConversation(key, assistantText) {
   } catch { /* table missing → memory off, same as loadConversation */ }
 }
 
+// ---- outbound invites ----------------------------------------------------
+
+/** Everything the invite push needs, in one round trip's worth of queries. */
+export async function inviteDetails(eventId, memberId) {
+  if (!db) return null;
+  const [{ data: ev }, { data: invitee }] = await Promise.all([
+    db.from('events')
+      .select('id, slug, title, when_label, location, visibility, archived_at, host_member_id')
+      .eq('id', eventId).maybeSingle(),
+    db.from('members')
+      .select('id, name, phone, archived_at').eq('id', memberId).maybeSingle(),
+  ]);
+  if (!ev || !invitee) return null;
+  const { data: host } = ev.host_member_id
+    ? await db.from('members').select('name').eq('id', ev.host_member_id).maybeSingle()
+    : { data: null };
+  return { event: ev, invitee, hostName: host?.name || 'Someone' };
+}
+
+/**
+ * Claim the right to send one notification. The unique index on
+ * (member_id, kind, dedupe_key) does the work: a second caller — a retried
+ * cron run, a re-fired webhook, two concurrent fires — loses the insert and
+ * gets `false`, so nobody is texted twice. Claim-then-send, not
+ * check-then-send, because the latter races.
+ */
+export async function claimNotification({ memberId, kind, subjectId, dedupeKey, phone }) {
+  if (!db) return false;
+  const { error } = await db.from('wa_notifications')
+    .insert({ member_id: memberId, kind, subject_id: subjectId, dedupe_key: dedupeKey, phone });
+  return !error; // unique violation → already claimed
+}
+
+/**
+ * Record that a claimed send failed. The row stays, so the failure is visible
+ * in the table and the same invite is not retried into a loop — a rare missed
+ * text is better than a storm, and the host can see RSVPs in the app anyway.
+ */
+export async function recordNotificationError({ memberId, kind, dedupeKey, error }) {
+  if (!db) return;
+  await db.from('wa_notifications').update({ error: String(error).slice(0, 500) })
+    .match({ member_id: memberId, kind, dedupe_key: dedupeKey });
+}
+
 // ---- nudge throttling ----------------------------------------------------
 // Whether we've recently offered to add someone's days. Enforced in code, not
 // left to the model — a prompt rule is a suggestion, a timestamp is a fact.
