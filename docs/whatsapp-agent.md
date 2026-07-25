@@ -158,6 +158,21 @@ You're invited: {{1}} added you to {{2}} on {{3}}. Reply here to RSVP or ask abo
 `{{1}}` host name · `{{2}}` event title · `{{3}}` when. It opens and closes with
 real text rather than a variable, which Meta rejects less often.
 
+> ⚠️ **Having an `HX` SID does not mean the template can be sent.** Twilio issues
+> the SID as soon as you create the content template; WhatsApp approval is a
+> separate submission that happens afterwards. Check **Channel eligibility** on
+> the template row:
+>
+> - **WhatsApp user initiated** — only usable *inside* the 24-hour window
+> - **WhatsApp business initiated** — what this feature needs, and the one that
+>   requires Meta's review
+>
+> Sending while only *user initiated* is green fails with **63016 "Outside
+> messaging window"**, because Twilio can't apply the template and falls back to
+> a freeform message. The error names the window, not the template, which sends
+> you looking in the wrong place. Confirm the business-initiated badge is green
+> before debugging anything else.
+
 **The trigger is a Supabase Database Webhook**, not the browser — that catches
 invites however they're created (the Host dialog today, admin SQL tomorrow) and
 keeps the secret off the client:
