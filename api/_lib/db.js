@@ -74,14 +74,48 @@ export async function roster() {
   return { familyName, memberById, members: members || [] };
 }
 
-/** Members whose name loosely matches `query` (case-insensitive substring, all
- *  tokens must appear). Returns [{ id, name, familyName }]. */
+// People refer to a household several ways — "Bonforte", "the Bonfortes", "the
+// Bonforte family". These words carry no identifying information, so requiring
+// them to appear in someone's name is what made "the Bonforte family" return
+// nothing at all.
+const NAME_STOPWORDS = new Set([
+  'the', 'family', 'families', 'household', 'and', 'a', 'an', 'of', 'clan', 'folks',
+]);
+
+/** Split a query into the tokens that actually identify someone. */
+export function nameTokens(query) {
+  return String(query || '')
+    .toLowerCase()
+    .split(/[\s,./]+/)
+    .map((t) => t.replace(/[^a-z''-]/g, '').replace(/'s$/, ''))
+    .filter((t) => t && !NAME_STOPWORDS.has(t));
+}
+
+/**
+ * Does `query` refer to this person? Matches against their own name AND their
+ * family name, so "the Bonfortes" finds Jeff, and tolerates the plural people
+ * naturally use for a household.
+ */
+export function nameMatches(query, memberName, familyName) {
+  const tokens = nameTokens(query);
+  if (!tokens.length) return false;
+  const hay = `${String(memberName || '')} ${String(familyName || '')}`.toLowerCase();
+  return tokens.every((t) => {
+    if (hay.includes(t)) return true;
+    // "Bonfortes" → "Bonforte". Only for tokens long enough that the trailing
+    // s is plausibly a plural rather than part of the name (Ross, Bess).
+    if (t.length > 4 && t.endsWith('s') && hay.includes(t.slice(0, -1))) return true;
+    return false;
+  });
+}
+
+/** Members matching `query` by their own name or their family's.
+ *  Returns [{ id, name, familyName }]. */
 export async function findMembersByName(query) {
   const { members, memberById } = await roster();
-  const tokens = String(query || '').toLowerCase().split(/\s+/).filter(Boolean);
-  if (!tokens.length) return [];
+  if (!nameTokens(query).length) return [];
   return members
-    .filter((m) => { const n = m.name.toLowerCase(); return tokens.every((t) => n.includes(t)); })
+    .filter((m) => nameMatches(query, m.name, memberById[m.id]?.familyName))
     .map((m) => ({ id: m.id, name: m.name, familyName: memberById[m.id]?.familyName || null }));
 }
 
