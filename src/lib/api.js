@@ -515,7 +515,39 @@ export async function listInvites() {
   const famIds = [...new Set(rows.map((r) => r.family_id).filter(Boolean))];
   let fams = {};
   if (famIds.length) { const { data: fs } = await supabase.from('families').select('id, name').in('id', famIds); fams = Object.fromEntries((fs || []).map((f) => [f.id, f.name])); }
-  return rows.map((r) => ({ id: r.id, email: r.email, family: r.family_id ? fams[r.family_id] : null, status: r.revoked_at ? 'revoked' : r.accepted_at ? 'accepted' : 'pending' }));
+
+  // Sign-in times live in auth.users, which the browser can't read — an
+  // admin-gated RPC returns just the timestamps (see 0018). Failure here is
+  // non-fatal: the list still renders, activity just shows as unknown.
+  let activity = {};
+  try {
+    const { data: act } = await supabase.rpc('invite_activity');
+    activity = Object.fromEntries((act || []).map((a) => [String(a.email || '').toLowerCase(), a]));
+  } catch { /* not an admin, or 0018 not applied yet */ }
+
+  return rows.map((r) => {
+    const a = activity[String(r.email || '').toLowerCase()];
+    return {
+      id: r.id,
+      email: r.email,
+      family: r.family_id ? fams[r.family_id] : null,
+      status: r.revoked_at ? 'revoked' : r.accepted_at ? 'accepted' : 'pending',
+      lastSignInAt: a?.last_sign_in_at || null,
+      firstSignInAt: a?.first_sign_in_at || null,
+    };
+  });
+}
+
+/** "3 days ago" / "Today" for a timestamp, or null. Coarse on purpose — the
+ *  question is "are they using it", not what minute they logged in. */
+export function sinceLabel(iso) {
+  if (!iso) return null;
+  const days = Math.floor((Date.now() - new Date(iso).getTime()) / 86400000);
+  if (days <= 0) return 'today';
+  if (days === 1) return 'yesterday';
+  if (days < 30) return `${days} days ago`;
+  const months = Math.round(days / 30);
+  return months === 1 ? 'a month ago' : `${months} months ago`;
 }
 
 // Add (or re-activate) an email on the sign-in allowlist. Upserts on the unique
