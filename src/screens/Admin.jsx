@@ -7,7 +7,7 @@ import {
   listInvites, revokeInvite, deleteInvitee, createMember,
   createFamily, archiveFamily,
   listCommunity, createCommunityEvent, deleteCommunityEvent,
-  listAddRequests, resolveAddRequest,
+  listAddRequests, resolveAddRequest, sinceLabel,
 } from '../lib/api.js';
 
 const AMENITY_OPTS = Object.entries(AMENITIES).map(([value, v]) => ({ value, label: v.label }));
@@ -98,7 +98,17 @@ function InvitesTab({ data, onReload }) {
             <Row key={r.id}>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ font: 'var(--fw-semibold) var(--text-sm)/1.15 var(--font-mono)', color: 'var(--text-strong)' }}>{r.email}</div>
-                <div style={{ font: 'var(--role-small)', color: 'var(--text-muted)' }}>{r.family ? `The ${r.family}s` : 'Unassigned'}</div>
+                <div style={{ font: 'var(--role-small)', color: 'var(--text-muted)' }}>
+                  {r.family ? `The ${r.family}s` : 'Unassigned'}
+                  {/* Whether the invite actually took. Null means they have never
+                      signed in — the case worth chasing. */}
+                  {r.status !== 'revoked' && (
+                    <> · {r.lastSignInAt
+                      ? <span style={{ color: 'var(--text-body)' }}>last signed in {sinceLabel(r.lastSignInAt)}</span>
+                      : <span style={{ color: 'var(--warm)' }}>never signed in</span>}
+                    </>
+                  )}
+                </div>
               </div>
               <Badge tone={r.status === 'accepted' ? 'success' : r.status === 'revoked' ? 'danger' : 'warning'}>{r.status === 'accepted' ? 'signed in' : r.status === 'revoked' ? 'revoked' : 'invited'}</Badge>
               {confirmDel === r.id ? (
