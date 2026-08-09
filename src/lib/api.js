@@ -31,7 +31,7 @@ const WEEKDAY_TO_KEY = { Thu: 'thu', Fri: 'fri', Sat: 'sat', Sun: 'sun', Mon: 'm
 // Presence is day-agnostic (people visit any days, not just weekends). "here"
 // means they're at the Camp TODAY (the first day of the rolling window);
 // otherwise the label describes when in the window they're up next.
-function presenceFrom(days) {
+export function presenceFrom(days) {
   const sorted = [...new Set(days)].filter((d) => DAY_ORDER.includes(d)).sort((a, b) => DAY_ORDER.indexOf(a) - DAY_ORDER.indexOf(b));
   if (sorted.length === 0) return { here: false, label: 'Away', days: [] };
   const hereToday = sorted[0] === DAY_ORDER[0];
@@ -401,22 +401,58 @@ export async function saveVisitPlan(scope, dateKeys, fromKey) {
   const mid = await currentMemberId();
   if (!famId) return { ok: false, error: 'Not linked to a family.' };
 
-  let targets;
-  if (scope === 'family') {
-    const { data: ms } = await supabase.from('members').select('id').eq('family_id', famId).is('archived_at', null);
-    targets = ms || [];
-  } else {
-    const { data: m } = await supabase.from('members').select('id').eq('name', scope).eq('family_id', famId).maybeSingle();
-    targets = m ? [m] : [];
-  }
-  const ids = targets.map((t) => t.id);
+  const ids = await scopeMemberIds(scope, famId);
   if (!ids.length) return { ok: false, error: 'No members in scope.' };
 
   // Replace within the planning horizon: clear future rows for these members, then insert the selection.
-  await supabase.from('attendance').delete().in('member_id', ids).gte('date', fromKey);
+  const { error: delErr } = await supabase.from('attendance').delete().in('member_id', ids).gte('date', fromKey);
+  if (delErr) return { ok: false, error: delErr.message };
   const rows = [];
   for (const id of ids) for (const d of dateKeys) rows.push({ member_id: id, family_id: famId, date: d, created_by: mid, status: 'planned' });
-  if (rows.length) await supabase.from('attendance').upsert(rows, { onConflict: 'member_id,date' });
+  if (rows.length) {
+    const { error } = await supabase.from('attendance').upsert(rows, { onConflict: 'member_id,date' });
+    if (error) return { ok: false, error: error.message };
+  }
+  return { ok: true };
+}
+
+/** The member ids a save scope resolves to: the whole family, or one member. */
+async function scopeMemberIds(scope, famId) {
+  if (scope === 'family') {
+    const { data } = await supabase.from('members').select('id').eq('family_id', famId).is('archived_at', null);
+    return (data || []).map((m) => m.id);
+  }
+  const { data } = await supabase.from('members').select('id').eq('name', scope).eq('family_id', famId).maybeSingle();
+  return data ? [data.id] : [];
+}
+
+/**
+ * Add and/or remove SPECIFIC attendance dates for a scope, leaving every other
+ * date untouched. This is the writer for single-day toggles (the home picker,
+ * the calendar grid) — unlike saveVisitPlan it never clears an unbounded range,
+ * so a 7-day picker can't delete a visit planned for next March.
+ * Dates are ISO day keys (YYYY-MM-DD). If a date is in both lists, add wins.
+ */
+export async function setAttendanceDates(scope, { add = [], remove = [] } = {}) {
+  if (!isSupabaseConfigured) return { ok: false, offline: true };
+  if (!add.length && !remove.length) return { ok: true };
+  const famId = await currentFamilyId();
+  if (!famId) return { ok: false, error: 'Not linked to a family.' };
+  const ids = await scopeMemberIds(scope, famId);
+  if (!ids.length) return { ok: false, error: 'No members in scope.' };
+
+  const drop = remove.filter((d) => !add.includes(d));
+  if (drop.length) {
+    const { error } = await supabase.from('attendance').delete().in('member_id', ids).in('date', drop);
+    if (error) return { ok: false, error: error.message };
+  }
+  if (add.length) {
+    const mid = await currentMemberId();
+    const rows = [];
+    for (const id of ids) for (const d of add) rows.push({ member_id: id, family_id: famId, date: d, created_by: mid, status: 'planned' });
+    const { error } = await supabase.from('attendance').upsert(rows, { onConflict: 'member_id,date' });
+    if (error) return { ok: false, error: error.message };
+  }
   return { ok: true };
 }
 

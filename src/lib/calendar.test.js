@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   buildWeekendDays, dateKey, sameDay, addMonths, monthMatrix, nextMonths,
   parseWhen, eventStart, isPastEvent, eventDate, buildICS,
+  windowDay, windowKeysFor,
 } from './calendar.js';
 
 // buildWeekendDays / eventDate / isPastEvent all accept the current date as an
@@ -18,6 +19,31 @@ describe('dateKey', () => {
   // key, so a one-day drift would silently mark the wrong night.
   it('does not drift for a late-evening local time', () => {
     expect(dateKey(new Date(2026, 7, 15, 23, 59))).toBe('2026-08-15');
+  });
+});
+
+// The pickers toggle by weekday key ('fri') while attendance is stored by ISO
+// date, so these two carry the bridge between them.
+describe('windowDay / windowKeysFor', () => {
+  const days = buildWeekendDays([], new Date(2026, 6, 24)); // Fri 2026-07-24
+
+  it('maps a weekday key to its window entry', () => {
+    expect(windowDay(days, 'sun').iso).toBe('2026-07-26');
+    expect(windowDay(days, 'fri').iso).toBe('2026-07-24'); // today, not next week
+  });
+
+  it('returns null for a key outside the window and for empty input', () => {
+    expect(windowDay(buildWeekendDays([], new Date(2026, 6, 24)).slice(0, 3), 'thu')).toBeNull();
+    expect(windowDay(undefined, 'fri')).toBeNull();
+  });
+
+  it('maps ISO dates back to keys, in window order, ignoring dates outside it', () => {
+    expect(windowKeysFor(days, ['2026-07-26', '2026-07-24'])).toEqual(['fri', 'sun']);
+    // A date planned months out must not register as a window day — this is what
+    // keeps the optimistic presence patch from inventing a key.
+    expect(windowKeysFor(days, ['2026-11-03'])).toEqual([]);
+    expect(windowKeysFor(days, [])).toEqual([]);
+    expect(windowKeysFor(days, undefined)).toEqual([]);
   });
 });
 
