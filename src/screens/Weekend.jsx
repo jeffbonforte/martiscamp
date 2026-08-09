@@ -3,15 +3,27 @@ import { FamilyCard, GatheringCard, AttendancePicker, Card, Button, HeroPhoto } 
 import { useLucide } from '../lib/useLucide.js';
 import { coverUrl } from '../lib/images.js';
 import { WeatherPill, SnowReport, WA_ASSISTANT } from './shared.jsx';
-import { isSkiSeason, eventStart, isPastEvent } from '../lib/calendar.js';
+import { isSkiSeason, eventStart, isPastEvent, windowDay } from '../lib/calendar.js';
+import { useMarkAttendance } from '../lib/useAttendance.js';
 import { HomeGetStarted } from './HomeGetStarted.jsx';
 
 /** "Here now" — who is physically at the Camp today, plus what's coming up. */
-export function WeekendScreen({ data, season, favorites, onOpenFamily, onEditFamily, onAddMember, onGoCalendar, onGoDirectory, rsvpMap = {}, onPlan, onOpenEvent, onAddCal }) {
+export function WeekendScreen({ data, season, favorites, onOpenFamily, onEditFamily, onAddMember, onGoCalendar, onGoDirectory, onAttendanceChange, rsvpMap = {}, onPlan, onOpenEvent, onAddCal }) {
   const myFam = data.families.find((f) => f.id === data.me?.familyId) || data.families[0];
   const famFavCount = [...(favorites || [])].filter((k) => !String(k).startsWith('m:')).length;
-  const [days, setDays] = React.useState(myFam ? myFam.presence.days : []);
-  const toggle = (k) => setDays((d) => (d.includes(k) ? d.filter((x) => x !== k) : [...d, k]));
+  // The picker reads straight from the dataset rather than holding its own copy:
+  // App patches presence optimistically on every toggle, so this stays in sync
+  // with the pills on the family cards instead of drifting from a stale seed.
+  const days = myFam ? myFam.presence.days : [];
+  // `myFam` falls back to families[0] for display; only your own household is
+  // markable (RLS would reject anyone else's anyway).
+  const canMark = !!myFam && myFam.id === data.me?.familyId;
+  const { markDay } = useMarkAttendance({ scope: 'family', onApply: onAttendanceChange });
+  const toggle = (k) => {
+    const wd = windowDay(data.weekendDays, k);
+    if (!wd || !canMark) return;
+    markDay(wd.iso, !days.includes(k), wd.date); // every window day is today-or-later
+  };
   const [waHidden, setWaHidden] = React.useState(() => { try { return localStorage.getItem('mcf_wa_announce') === 'off'; } catch { return false; } });
   const dismissWa = () => { try { localStorage.setItem('mcf_wa_announce', 'off'); } catch { /* ignore */ } setWaHidden(true); };
   const here = data.families.filter((f) => f.presence.here); // camp-wide count (includes your own family)
@@ -93,7 +105,7 @@ export function WeekendScreen({ data, season, favorites, onOpenFamily, onEditFam
           <div style={{ font: 'var(--role-h3)', color: 'var(--text-strong)' }}>Mark your days</div>
           <div style={{ font: 'var(--role-small)', color: 'var(--text-muted)', marginTop: 2 }}>Let other families know when {myFam ? `the ${myFam.name}s` : 'you'} will be up.</div>
         </div>
-        <AttendancePicker days={data.weekendDays} selected={days} onToggle={toggle} />
+        <AttendancePicker days={data.weekendDays} selected={days} onToggle={canMark ? toggle : undefined} />
       </Card>
 
       {favHere.length > 0 && (

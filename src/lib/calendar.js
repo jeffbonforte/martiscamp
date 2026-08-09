@@ -56,6 +56,19 @@ export function dateKey(date) {
   return `${y}-${m}-${d}`;
 }
 
+/**
+ * The rolling-window entry for a weekday key ('fri'), or null. AttendancePicker
+ * toggles by weekday key while attendance is stored by ISO date, so every
+ * picker needs this bridge.
+ */
+export const windowDay = (weekendDays, key) => (weekendDays || []).find((d) => d.key === key) || null;
+
+/** Weekday keys for whichever of `isoDates` fall inside the rolling window. */
+export const windowKeysFor = (weekendDays, isoDates) => {
+  const set = new Set(isoDates || []);
+  return (weekendDays || []).filter((d) => set.has(d.iso)).map((d) => d.key);
+};
+
 export function sameDay(a, b) {
   return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
 }

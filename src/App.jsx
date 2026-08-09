@@ -4,9 +4,9 @@ import { useLucide } from './lib/useLucide.js';
 import { useWeather } from './lib/weather.js';
 import { LOGO_BADGE } from './lib/images.js';
 import { DATA } from './data/mockData.js';
-import { loadAppData, persistFavorite, persistRsvp, deleteGathering } from './lib/api.js';
+import { loadAppData, persistFavorite, persistRsvp, deleteGathering, presenceFrom } from './lib/api.js';
 import { feedGlyph, WA_ASSISTANT } from './screens/shared.jsx';
-import { isPastEvent } from './lib/calendar.js';
+import { isPastEvent, windowKeysFor } from './lib/calendar.js';
 
 import { WeekendScreen } from './screens/Weekend.jsx';
 import { DirectoryScreen } from './screens/Directory.jsx';
@@ -102,6 +102,29 @@ export function App({ onSignOut }) {
     persistFavorite(id, on); // persisted to Supabase when configured; no-op otherwise
     return n;
   });
+  // Fold an attendance change into the loaded dataset so presence-derived UI (the
+  // hero "N families are up" count, the Here-now cards, the FamilyCard pills, the
+  // get-started checkmark) updates instantly — without reload()ing, which refetches
+  // every table and re-signs every photo URL, flickering the whole grid on each tap.
+  // Only dates inside the rolling window affect presence, so the rest are ignored.
+  // Deliberately a plain function, not a hook: this sits after the early returns above.
+  const applyAttendanceDelta = ({ add = [], remove = [] }) => setBase((b) => {
+    if (!b) return b;
+    const addK = new Set(windowKeysFor(weekendDays, add));
+    const rmK = new Set(windowKeysFor(weekendDays, remove));
+    if (!addK.size && !rmK.size) return b;
+    const families = b.families.map((f) => {
+      if (f.id !== b.me.familyId) return f;
+      // Every member, because the write scope is 'family' — matching what
+      // setAttendanceDates('family', …) actually persists.
+      const members = f.members.map((m) => ({
+        ...m, days: [...new Set([...(m.days || []).filter((k) => !rmK.has(k)), ...addK])],
+      }));
+      return { ...f, members, presence: presenceFrom(members.flatMap((m) => m.days)) };
+    });
+    return { ...b, families };
+  });
+
   const openFamily = (f) => { setFeedOpen(false); setRoute({ type: 'family', item: f }); };
   const openEvent = (e) => { setFeedOpen(false); setRoute({ type: 'event', item: e }); };
   const openMember = (f, m) => setRoute({ type: 'member', item: f, member: m });
@@ -162,11 +185,12 @@ export function App({ onSignOut }) {
       onEditFamily={() => myFam && setEditTarget({ type: 'family', family: myFam })}
       onAddMember={() => myFam && setAddMemberFor(myFam)}
       onGoCalendar={() => go('calendar')} onGoDirectory={() => go('directory')}
+      onAttendanceChange={applyAttendanceDelta}
       rsvpMap={rsvpMap} onPlan={() => openPost('gathering')} onOpenEvent={openEvent} onAddCal={addToCalendar} />;
   } else if (view === 'directory') {
     body = <DirectoryScreen data={data} favorites={favorites} onToggleFav={toggleFav} onOpen={openFamily} />;
   } else if (view === 'calendar') {
-    body = <CalendarScreen data={data} season={season} favorites={favorites} onOpenEvent={openEvent} onPlanVisit={() => go('plan')} onOpenFamily={openFamily} onOpenMember={openMember} />;
+    body = <CalendarScreen data={data} season={season} favorites={favorites} onOpenEvent={openEvent} onPlanVisit={() => go('plan')} onOpenFamily={openFamily} onOpenMember={openMember} onAttendanceChange={applyAttendanceDelta} />;
   } else if (view === 'plan') {
     body = <PlanVisit data={data} onBack={() => go('calendar')} />;
   } else if (view === 'gatherings') {

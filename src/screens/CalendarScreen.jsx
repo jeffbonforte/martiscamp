@@ -3,8 +3,8 @@ import { Button, AMENITIES, VisitPill, SeasonTimeline } from '../components/inde
 import { useLucide } from '../lib/useLucide.js';
 import { PageHead, SnowReport } from './shared.jsx';
 import { MONTHS, WEEKDAYS, monthMatrix, sameDay, isSkiSeason, dateKey, eventDate } from '../lib/calendar.js';
-import { loadVisitPlan, saveVisitPlan } from '../lib/api.js';
-import { useToast } from '../lib/toast.jsx';
+import { loadVisitPlan } from '../lib/api.js';
+import { useMarkAttendance } from '../lib/useAttendance.js';
 
 const DAY_MS = 86400000;
 const mdShort = (d) => d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
@@ -27,10 +27,10 @@ function contiguousSpans(dates) {
   return spans.map((s) => ({ start: new Date(s.startT), end: new Date(s.endT) }));
 }
 
-export function CalendarScreen({ data, season, favorites, onOpenEvent, onPlanVisit, onOpenFamily, onOpenMember }) {
+export function CalendarScreen({ data, season, favorites, onOpenEvent, onPlanVisit, onOpenFamily, onOpenMember, onAttendanceChange }) {
   const myFam = data.families.find((f) => f.id === data.me.familyId);
   const [offset, setOffset] = React.useState(0); // months ahead of the current month (0..12)
-  const { push } = useToast();
+  const { markDay } = useMarkAttendance({ scope: 'family', onApply: onAttendanceChange });
   // The family's own visit days (family-level = whole household). Click days on
   // the grid below to toggle; persisted to the backend.
   const [myDates, setMyDates] = React.useState(() => new Set());
@@ -38,7 +38,6 @@ export function CalendarScreen({ data, season, favorites, onOpenEvent, onPlanVis
 
   // "Today" and the rolling window bounds, from the real calendar.
   const APP_TODAY = new Date(); APP_TODAY.setHours(0, 0, 0, 0);
-  const todayKey = dateKey(APP_TODAY);
 
   React.useEffect(() => {
     let alive = true;
@@ -54,16 +53,18 @@ export function CalendarScreen({ data, season, favorites, onOpenEvent, onPlanVis
     return () => { alive = false; };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const toggleDay = (date) => {
+  // One day at a time: a delta write can only touch the date you clicked, so it
+  // can't clear dates this grid never loaded (myDates is the *intersection*
+  // across members, and is empty entirely when loadVisitPlan returns null).
+  const toggleDay = async (date) => {
     if (date < APP_TODAY) return; // can't mark past days
     const key = dateKey(date);
     const wasMarked = myDates.has(key);
     const next = new Set(myDates);
     if (wasMarked) next.delete(key); else next.add(key);
     setMyDates(next);
-    saveVisitPlan('family', [...next].filter((d) => d >= todayKey), todayKey); // persist the whole future set
-    const label = date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
-    push({ icon: 'calendar-check', tone: 'success', title: wasMarked ? `Cleared ${label}` : `Marked ${label}`, message: wasMarked ? 'Removed from your visit.' : 'Other families can see your visit.' });
+    const r = await markDay(key, !wasMarked, date);
+    if (!r.ok && !r.offline) setMyDates(myDates); // markDay already toasted the failure
   };
 
   const ANCHOR_MONTH = { year: APP_TODAY.getFullYear(), month: APP_TODAY.getMonth() };

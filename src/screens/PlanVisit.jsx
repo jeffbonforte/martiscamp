@@ -32,6 +32,7 @@ export function PlanVisit({ data, onBack }) {
   const [planned, setPlanned] = React.useState(seed);
   const [saving, setSaving] = React.useState(false);
   const [saved, setSaved] = React.useState(false);
+  const [err, setErr] = React.useState('');
   useLucide();
 
   // When Supabase is configured, hydrate the plan from saved attendance.
@@ -48,10 +49,11 @@ export function PlanVisit({ data, onBack }) {
   }, []);
 
   const savePlan = async () => {
-    setSaving(true); setSaved(false);
+    setSaving(true); setSaved(false); setErr('');
     const r = await saveVisitPlan(scope, [...(planned[scope] || [])], dateKey(startOfToday));
     setSaving(false);
-    if (r.ok || r.offline) setSaved(true);
+    if (r.ok || r.offline) setSaved(true); // mock mode has nothing to persist
+    else setErr(r.error || 'Could not save your plan.');
   };
 
   const current = planned[scope] || new Set();
@@ -91,6 +93,7 @@ export function PlanVisit({ data, onBack }) {
               Marked for <b style={{ color: 'var(--success)', fontWeight: 'var(--fw-semibold)' }}>{dayCount} day{dayCount === 1 ? '' : 's'}</b>
             </span>
             <Button size="sm" disabled={saving} onClick={savePlan} iconLeft={<i data-lucide="check" style={{ width: 15, height: 15 }} />}>{saving ? 'Saving…' : saved ? 'Saved ✓' : 'Save plan'}</Button>
+            {err && <span style={{ font: 'var(--role-small)', color: 'var(--danger)' }}>{err}</span>}
           </div>
         </div>
       </div>
